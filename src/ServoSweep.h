@@ -1,21 +1,27 @@
 #include <Arduino.h>
 #include <Servo.h>
 
+#define nTurnouts 8
+
 class ServoSweep {
 
 public:
-    ServoSweep( uint8_t _servoPin, uint8_t _min, uint8_t _max, uint8_t _speed, uint8_t _turnOff  ) ;        // constructor 1
-    ServoSweep( uint8_t _servoPin, uint8_t _min, uint8_t _max, uint8_t _speed, uint8_t _turnOff, uint8_t _relayPin ) ;  // constructor 2
-    uint8_t sweep( );
+    ServoSweep( uint8_t , uint8_t  ) ;        // constructor 1
+    void sweep( );
     void setState( uint8_t _state );
     // void turnOn() ;
     // void turnOff() ;
     void begin( );
+    void setMin( uint8_t ) ;
+    void setMax( uint8_t ) ;
+    uint8_t getMin( ) ;
+    uint8_t getMax( ) ;
+    uint8_t getState( ) ;
 
 private:
     Servo servo ;
     unsigned long timeToRun ;
-    uint8_t pos ;
+    int8_t pos ;
     uint8_t state ;
     uint8_t prevPos;
     uint8_t servoPin ;
@@ -28,3 +34,8 @@ private:
     uint8_t turnOff ;
     unsigned long currentTime = millis() ;
 } ;
+
+extern void initServos() ;
+extern void sweepServos() ;
+extern void adjustServo( int8_t ) ;
+extern void setServo( uint8_t, uint8_t ) ;
