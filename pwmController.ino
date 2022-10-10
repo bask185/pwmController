@@ -25,6 +25,7 @@ enum events
 
 XpressNetMasterClass    Xnet ;
 EventHandler eventHandler( 0x0000, 0x7FFF ) ;
+const int pcfAddress = 0x21;
 
 Weistra pwmController( pwmPin1, pwmPin2, 30, 100 ) ;
 
@@ -60,7 +61,9 @@ BACKLOG
 - add acceleration/decceleration to weistra 
 */
 
-int8 speed = 0 ; ;
+uint8 relays ;
+uint8 relaysPrev ;
+int8 speed = 0 ;
 bool accelerating = true ;
 
 const int mcpPins[] = {  // PCB correction for mcp23017 pins
@@ -211,11 +214,11 @@ void setOutput( uint8_t Address, uint8_t functions )
             if( functions & bitMask ) state = 1 ;    // on
             else                      state = 0 ;    // off        
 
-            if(      ioNumber <=  8 ) { setServo( ioNumber - 1 , state ) ;  }             //  1 <->  8
-            // else if( ioNumber <= 18 ) { digitalWrite( relay[ioNumber-11], state^1 ) ; }     // 11 <-> 18
-            //                                                                                 // 21 <-> 28  address 3 not used.
-            // else if( ioNumber <= 38 ) setRoute( ioNumber - 31 ) ;                           // 31 <-> 38
-            // else if( ioNumber <= 48 ) ;                                                     // 41 <-> 48
+            if(      ioNumber <=  8 ) { setServo( ioNumber - 1 , state ) ;  }                   //  1 <->  8
+            else if( ioNumber <= 18 ) { bitWrite( relays, ioNumber-11, state ) ; }              // 11 <-> 18
+            //                                                                                  // 21 <-> 28  address 3 not used.
+            // else if( ioNumber <= 38 ) setRoute( ioNumber - 31 ) ;                            // 31 <-> 38
+            // else if( ioNumber <= 48 ) ;                                                      // 41 <-> 48
 
             return ;
         }
@@ -236,6 +239,7 @@ void notifyXNetLocoFunc3( uint16_t Address, uint8_t Func )
     prevFunc = Func ;
 }
 
+/* TO BE REPLACED BY SELF SHUTTING DOWN / REINSTATING POWER MANAGEMENT 
 void notifyXNetPower(uint8_t State) 
 {   
     if( State == csNormal )
@@ -251,13 +255,14 @@ void notifyXNetPower(uint8_t State)
         //setPoint = 0 ;                                                              // ensures that the maus's knob needs to be turned before train moves again
     }
 }
+*/
 
-void notifyXNetgiveLocoInfo(uint8_t UserOps, uint16_t Address)
+void notifyXNetgiveLocoInfo(uint8_t UserOps, uint16_t Address) // WHAT DOES THIS DO?
 {
     Xnet.SetLocoInfo(UserOps, 0x00, 0x00, 0x00); //UserOps,Speed,F0,F1
 }
 
-void notifyXNetgiveLocoFunc(uint8_t UserOps, uint16_t Address)
+void notifyXNetgiveLocoFunc(uint8_t UserOps, uint16_t Address) // WHAT DOES THIS DO?
 {
     Xnet.SetFktStatus(UserOps, 0x00, 0x00); //Fkt4, Fkt5
 }
@@ -301,6 +306,18 @@ void notifyEvent( uint8 type, uint16 address, uint8 data )                      
         case accessoryEvent:    setOutput( address, data ) ;                break ;
     }
 }
+
+void updateRelay()
+{
+    if( relays != relaysPrev )
+    {   relaysPrev = relays ;
+
+        Wire.beginTransmission( pcfAddress ) ;
+        Wire.write( relays ) ;
+        Wire.endTransmission() ;
+    }
+}
+
 void setup()
 {
     Wire.begin() ;
@@ -323,6 +340,7 @@ void loop()
     debounceInputs() ;
     processButtons() ;
     sweepServos() ;
+    updateRelay() ;
     for( int i = 0 ; i < nPrograms ; i ++ )
     {
         program[i].update() ;                 // run all 5 prorams

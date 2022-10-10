@@ -134,16 +134,16 @@ void adjustServo( int8_t F11_F12 )
 
     if( servo[ lastSetServo].getState() )                 // ADJUST EITHER LOW POSITION...
     {
-        //eeAddress = ADDR_S1 + (lastSetServo * 2) ;
         uint8_t low = servo[ lastSetServo].getMin() + F11_F12 ;
         servo[ lastSetServo].setMin( low ) ;
+        //eeAddress = ADDR_S1 + (lastSetServo * 2) ;
         //EEPROM.write(eeAddress, low ) ;       
     }
     else
     {                                                   // ... OR HIGH POSITION
-        //eeAddress = ADDR_S1 + (lastSetServo * 2) + 1;
         uint8_t high = servo[ lastSetServo].getMax() + F11_F12 ;
         servo[ lastSetServo].setMax( high ) ;
+        //eeAddress = ADDR_S1 + (lastSetServo * 2) + 1;
         //EEPROM.write(eeAddress, high ) ; 
     }
 }
