@@ -334,7 +334,7 @@
       "no_connect_dangling": "warning",
       "pin_not_connected": "error",
       "pin_not_driven": "error",
-      "pin_to_pin": "warning",
+      "pin_to_pin": "error",
       "power_pin_not_driven": "error",
       "similar_labels": "warning",
       "unannotated": "error",
@@ -429,6 +429,38 @@
     [
       "3d2a15cb-c492-4d9a-b1dd-7d5f099d2d31",
       ""
+    ],
+    [
+      "5124c4e8-cf6f-404c-8295-c381ef25d08e",
+      "H-bridge"
+    ],
+    [
+      "122d586c-feed-4ee3-99dc-cd90b7ea1328",
+      "relays"
+    ],
+    [
+      "75ec2212-e96e-4697-bcb2-3d63ffb74a5b",
+      "Inputs"
+    ],
+    [
+      "f2e2196a-c83d-497b-b552-0ac27a56ad59",
+      "power"
+    ],
+    [
+      "a084169b-da28-46ad-b05f-1a88913817db",
+      "interface"
+    ],
+    [
+      "24f7e543-0a4d-4bd9-83c3-31e964ac51f4",
+      "EEPROM"
+    ],
+    [
+      "15782add-6e54-4e42-a416-61587f86a435",
+      "GPIO"
+    ],
+    [
+      "af34ff1d-4916-46f6-b451-19970cdd1d1e",
+      "uController"
     ]
   ],
   "text_variables": {}

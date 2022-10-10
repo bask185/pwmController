@@ -91,9 +91,9 @@ ServoSweep servo[] =
 
 void initServos()
 {
-    //EEPROM.write( INIT_ADDR,     0xFF ) ;
+    //EEPROM.write( INIT_ADDR,     0xFF ) ; // manual load defaults
 
-    if( EEPROM.read( INIT_ADDR ) == 0xFF )  // if true, load default values
+    if( EEPROM.read( INIT_ADDR ) != 0xCC )  // if true, load default values
     {  EEPROM.write( INIT_ADDR,     0xCC ) ;
 
         for( int i = 0 ; i < 8 ; i ++ ) 
