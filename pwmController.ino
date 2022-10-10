@@ -8,12 +8,12 @@
 #include "src/weistra.h"
 #include "src/XpressNetMaster.h"
 #include "Wire.h"
-#include <SoftwareSerial.h>
+
 
 const int F1_F4 = 0 ;
 const int F5_F8 = 0x80 ;
-const int F11 = -10 ; // degrees at the time
-const int F12 =  10 ;
+const int F11 = -3 ; // degrees at the time
+const int F12 =  3 ;
 const int SPEED_MAX = 50 ; 
 
 enum events
@@ -55,7 +55,9 @@ V test MCP inputs
 V test servo motors
 V get XpressNet control functions to work
 V test pwm controller working well in one try! 2 pin control.
-- add shorcircuit code to weistra
+V add shorcircuit code to weistra
+V make motors configurable
+- solder motor 1
 
 BACKLOG
 - add acceleration/decceleration to weistra 
@@ -139,23 +141,21 @@ uint8_t lookUpSpeed( uint8_t speed )
 
 void notifyXNetLocoDrive28( uint16_t Address, uint8_t Speed )
 {
-    
-
     int8 speedActual = lookUpSpeed( Speed & 0b00011111 ) ;
     speedActual = map( speedActual, 0, 28, 0, SPEED_MAX ) ;           // map 28 speedsteps to 100 for weistra control
     if( Speed & 0x80 ) speedActual = -speedActual ;
     pwmController.setSpeed( speedActual ) ;
     program[channel].storeEvent( speedEvent, 123, speedActual ) ;
 }
+
 void notifyXNetLocoDrive128( uint16_t Address, uint8_t Speed )
 {
-    debug.println(Speed) ;
-
     int8 speedActual = Speed & 0x7F ;
     int8 direction   = Speed >> 7 ;
     
     if( speedActual == 0 )
     {
+        program[channel].storeEvent( speedEvent, 123, speedActual ) ;
         pwmController.setSpeed( 0 ) ;
         return ;
     }
@@ -270,9 +270,10 @@ void notifyXNetgiveLocoFunc(uint8_t UserOps, uint16_t Address) // WHAT DOES THIS
 void processButtons()
 {
     // buttons 0-2 are the program control buttons
-    if( buttonState[0] == FALLING ) program[channel].startPlaying() ;
-    if( buttonState[1] == FALLING ) program[channel].stopRecording() ;
-    if( buttonState[2] == FALLING ) program[channel].startRecording() ;
+    if( buttonState[0] == FALLING )   program[channel].startPlaying() ;
+    if( buttonState[1] == FALLING ) { program[channel].stopRecording() ;
+                                      program[channel].stopPlaying() ; }
+    if( buttonState[2] == FALLING )   program[channel].startRecording() ;
 
     // buttons 3-7 are channel selection buttons
     for( int i = 3 ; i < 8 ; i ++ )
@@ -302,8 +303,8 @@ void notifyEvent( uint8 type, uint16 address, uint8 data )                      
 {
     switch( type )
     {
-        case speedEvent:        notifyXNetLocoDrive28(address, data) ;      break ; 
-        case accessoryEvent:    setOutput( address, data ) ;                break ;
+        case speedEvent:        pwmController.setSpeed( data) ; break ; 
+        case accessoryEvent:    setOutput( address, data ) ;    break ;
     }
 }
 
@@ -322,6 +323,7 @@ void setup()
 {
     Wire.begin() ;
     pwmController.begin() ;
+    pwmController.currentMonitor( shortCircuit ) ;
     for( int i = 0 ; i < nPrograms ; i ++ )
     {   
         program[ i ].begin() ;
@@ -329,8 +331,10 @@ void setup()
     initIO() ;
     initServos() ;
     Xnet.setup( Loco28, RS485DIR ) ; // N.B. may need to change depending on what multimaus will do.
-    //debug.begin(9600) ;
+    
+    debug.begin(9600) ;
     debug.println("PWM controller booted") ;
+    pinMode(13,OUTPUT);
 }
 
 void loop()
@@ -343,6 +347,6 @@ void loop()
     updateRelay() ;
     for( int i = 0 ; i < nPrograms ; i ++ )
     {
-        program[i].update() ;                 // run all 5 prorams
+       program[i].update() ;                 // run all 5 prorams
     }    
 }
