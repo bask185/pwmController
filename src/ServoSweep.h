@@ -30,6 +30,7 @@ private:
     uint8_t servoMax  ;
     uint8_t middlePosition ;
     uint8_t relayPresent ;
+    uint8_t moving ;
     uint8_t relayPin ;
     uint8_t turnOff ;
     unsigned long currentTime = millis() ;

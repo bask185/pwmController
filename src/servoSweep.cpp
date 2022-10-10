@@ -26,13 +26,11 @@ ServoSweep::ServoSweep( uint8_t _speed, uint8_t _pin )                   // cons
 void ServoSweep::setMin( uint8_t limit )
 {
     servoMin = limit ;
-    servo.attach( servoPin ) ;
 }
 
 void ServoSweep::setMax( uint8_t limit )
 {
     servoMax = limit ;
-    servo.attach( servoPin ) ;
 }
 
 uint8_t ServoSweep::getMin( )
@@ -47,10 +45,7 @@ uint8_t ServoSweep::getMax( )
 
 void ServoSweep::begin()
 {
-    //pos = (servoMax - servoMin) / 2 ;
-    //if( pos < 0 ) pos = -pos ;
-    //servo.write( pos ) ;
-    //servo.attach( servoPin ) ;
+    pos =  servoMin ; 
 }
 
 uint8_t ServoSweep::getState()
@@ -61,24 +56,21 @@ uint8_t ServoSweep::getState()
 void ServoSweep::setState( uint8_t _state )
 {
     state = _state ;
-    servo.attach( servoPin ) ;
 }
 
 void ServoSweep::sweep ( )
 {
-    if( millis() > timeToRun ) {
-        timeToRun = millis() + servoSpeed ;
+    if( millis() - timeToRun >= servoSpeed )
+    {          timeToRun = millis() ;
 
         if( state == 1 && pos < servoMax ) pos ++ ;
         if( state == 0 && pos > servoMin ) pos -- ;
 
-        if( prevPos != pos ) {
-            prevPos  = pos ;
+        servo.write( pos ) ;
 
-            servo.write( pos ) ;
-            if( pos == servoMax || pos == servoMin ) servo.detach( ) ;
-        }
-    }
+        if( pos == servoMax || pos == servoMin ) servo.detach( ) ;              // kill signal upon arriving position
+        else if( servo.attached() == 0 )         servo.attach( servoPin ) ;     // enable servo if postion has changed
+    }                                                                           // and wasn't enabled yet
 }
 
 // wrapper functions, to be called from main
@@ -126,6 +118,7 @@ void setServo( uint8_t nServo, uint8_t state )
 {
     lastSetServo = nServo ;                             // keep track which servo was last to set.
     servo[ nServo ].setState( state ) ;
+    
 }
 
 void sweepServos()
@@ -144,8 +137,7 @@ void adjustServo( int8_t F11_F12 )
         //eeAddress = ADDR_S1 + (lastSetServo * 2) ;
         uint8_t low = servo[ lastSetServo].getMin() + F11_F12 ;
         servo[ lastSetServo].setMin( low ) ;
-        //EEPROM.write(eeAddress, low ) ;     
-        //servo[ lastSetServo ].setState( 1 ) ;    
+        //EEPROM.write(eeAddress, low ) ;       
     }
     else
     {                                                   // ... OR HIGH POSITION
@@ -153,6 +145,5 @@ void adjustServo( int8_t F11_F12 )
         uint8_t high = servo[ lastSetServo].getMax() + F11_F12 ;
         servo[ lastSetServo].setMax( high ) ;
         //EEPROM.write(eeAddress, high ) ; 
-       // servo[ lastSetServo ].setState( 0 ) ; 
     }
 }
