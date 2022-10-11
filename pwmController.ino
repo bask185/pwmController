@@ -1,3 +1,5 @@
+
+
 #include "src/io.h"
 #include "src/date.h"
 #include "src/version.h"
@@ -44,12 +46,62 @@ EventHandler program[] =
 } ;
 
 
-
-
-
 /* things to do:
 
-- get eventhandler to work
+PCB stuff
+- SEPERATE PCB FOR CURRENT SENSING
+- SEPERATE PCB FOR MOSFET CONTROLLING
+- MAKE NEW BRANCH OF FunctionBloX 
+
+
+code stuff
+- get eventhandler to work   (HALFWAY THERE)
+  V record/play PWM movements
+  V record/play servos
+  - record/play relays() propably works)
+  - record input pins (not tested, may work already)
+  - use separate channels
+  - reserve 2 buttons (7 & 8) for train movements (ALSO, V2 HAS POTENTIOMETERS, DISCARD THIS?)
+    (actually not needed maus is still needed to control IO, so might
+    as well drive with it)
+
+- different mode (#IFDEF OTHER MODE?)
+   Use inputs to correctly control servos & relays
+
+NOTE:
+-  may just Function Blox for this?
+  unused inputs should perhaps serve as feedback automatically?
+  or make separate feedback objects without outgoing or ingoing links?
+
+Make default Function Blox programs for different modi.
+- let multimaus control relay & servos via FunctionBlox
+
+FUNCTION BLOX STUFF:
+- add Xnet methods
+    RECEIVING
+      loco speed (fixed address) (analog signal can be mapped and repurpose'd)
+      loco function( fixed address) (digital out)
+      point (fixed address)
+    
+    TRANSMITTING
+      loco speed( variable address, variable speed) // can always fix address with a constant
+      loco function( variable address, fixed state, F0- F10 )
+      point( fixed or variable address?, state)
+
+
+- add PWM controller
+- add Stepper motor (with homing?) 3 inputs max, think of something.
+  teachin-able with multimaus
+- direct maus to stepper control
+- direct maus to servo control?
+- potentiometers to servo/stepper
+- need an analog latch block. This would allow me to connect analog input to several servo's with one at the time.
+  perhaps latch the servo's/steppers themselfes.
+
+
+- may want to alter the stop button to double act as the record button by holding it for 2 seconds
+  get code from hand controller
+
 V test MCP inputs
 - test PCF output (relais)
 V test servo motors
@@ -68,7 +120,7 @@ uint8 relaysPrev ;
 int8 speed = 0 ;
 bool accelerating = true ;
 
-const int mcpPins[] = {  // PCB correction for mcp23017 pins
+const int mcpPins[] = {  // Software correction for physical mcp23017 pins
   7, 6, 5, 4, 3, 2, 1, 0, 8, 9, 10, 11, 12, 13, 14, 15, 
 } ;
 uint8_t buttonState[16] ;
@@ -171,15 +223,7 @@ void notifyXNetLocoDrive128( uint16_t Address, uint8_t Speed )
 
 void setOutput( uint8_t Address, uint8_t functions )
 {
-    if( Address == 3) return ; // address 3 is unused
-    // if( Address == 6 )
-    // {
-    //     if( functions & 0b0001 ) startPlaying() ;
-    //     if( functions & 0b0010 ) stopPlaying() ;
-    //     if( functions & 0b0100 ) startRecording() ;
-    //     if( functions & 0b1000 ) stopRecording() ;
-    //     return ;
-    // }
+    if( Address == 3) return ;
 
     program[channel].storeEvent( accessoryEvent,  Address, functions ) ; 
 
