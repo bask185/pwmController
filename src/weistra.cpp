@@ -24,6 +24,9 @@ void Weistra::begin()
     byte port   = digitalPinToPort( trackPin1 );
     trackPin1   = digitalPinToBitMask( trackPin1 );
     portx_p1    = portOutputRegister( port );
+    currentPin = 255 ;
+    state = 1 ;
+    interval = 2 ;
 
     if( doublePinMode )
     {
@@ -34,9 +37,14 @@ void Weistra::begin()
     }
 }
 
+void Weistra::currentMonitor( uint8_t _pin )
+{
+    currentPin = _pin ;
+}
+
 void Weistra::update() 
 {
-    if( portx_p1 != 0 )
+    if( portx_p1 != 0 && state == 1 )
     {
         if( micros() - prevTime >= intervalTime )
         {           prevTime = micros();
@@ -56,6 +64,33 @@ void Weistra::update()
                 *portx_p2 &= ~trackPin2;
             }
             if( ++counter > 100) counter = 0 ;
+        }
+    }
+
+    if((( *portx_p1 & trackPin1 || *portx_p2 & trackPin2 ) && currentPin != 255) || state == 0 )
+    {
+        if( millis() - prevTime >= interval )
+        {  prevTime = millis() ;
+            
+            if( state == 1 )
+            {
+                int sample = analogRead( currentPin ) ;
+
+                if( sample <= 100 ) counter1 = nSamples ;
+
+                if( --counter1 == 0 )
+                {
+                    state = 0 ;
+                    *portx_p1 &= ~trackPin1;
+                    *portx_p2 &= ~trackPin2;
+                    interval = 2000 ;
+                }
+            }
+            else
+            {
+                state = 1 ;
+                interval = 2 ;
+            }
         }
     }
 }

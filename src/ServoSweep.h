@@ -1,7 +1,8 @@
 #include <Arduino.h>
 #include <Servo.h>
-
 #define nTurnouts 8
+
+
 
 class ServoSweep {
 
@@ -17,11 +18,15 @@ public:
     uint8_t getMin( ) ;
     uint8_t getMax( ) ;
     uint8_t getState( ) ;
+    void    incMax() ;
+    void    decMax() ;
 
 private:
     Servo servo ;
     unsigned long timeToRun ;
-    int8_t pos ;
+    uint8_t pos ;
+    uint8_t posPrev ;
+    uint32_t shutOffTime ;
     uint8_t state ;
     uint8_t prevPos;
     uint8_t servoPin ;
