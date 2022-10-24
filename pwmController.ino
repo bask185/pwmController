@@ -394,3 +394,45 @@ void loop()
        program[i].update() ;                 // run all 5 prorams
     }    
 }
+
+/* SK, some simple function to increment/decrement speed using input switches
+
+void updateThrottle( int8_t newSpeed )
+{
+    static bool     wait = 0 ;
+    static int8_t   speed = 0 ;
+
+
+    REPEAT_MS( 40 )
+    {
+        if( speed < MAX && throttle > -MAX ) speed += newSpeed ;
+        
+        if( setSpeed ) setSpeed( speed ) ;
+    }
+    END_REPEAT
+}
+extern void setSpeed( int8_t speed ) __attribute__((weak)) ;
+*/
+
+
+
+
+/* SK, same thing but with potentiometer instead
+void updateThrottle( int16_t newSpeed )
+{
+    static int8_t   speed = 0 ;
+
+    REPEAT_MS( 100 )
+    {
+        newSpeed = map( newSpeed, 0, 1023, -MAX, MAX ) ;
+        speed += (newSpeed - speed) / 4 ;
+        
+        //if( setSpeed ) setSpeed( speed ) ;
+        Serial.println( speed ) ;
+    }
+    END_REPEAT
+}
+
+extern void setSpeed( int8_t speed ) __attribute__((weak)) ;
+
+*/
