@@ -26,10 +26,9 @@ enum events
 
 
 XpressNetMasterClass    Xnet ;
-EventHandler eventHandler( 0x0000, 0x7FFF ) ;
 const int pcfAddress = 0x21;
 
-Weistra pwmController( pwmPin1, pwmPin2, 30, 100 ) ;
+Weistra pwmController( pwmPin1, pwmPin2, 20, 100 ) ;
 
 SoftwareSerial debug(9,10) ;
 
@@ -324,7 +323,7 @@ void processButtons()
     {
         if( buttonState[i] == FALLING )
         {
-            channel = i - 3 ;
+            channel = i - 3 ;// temp disabled
         }
     }
 
@@ -378,11 +377,28 @@ void setup()
     
     debug.begin(9600) ;
     debug.println("PWM controller booted") ;
-    pinMode(13,OUTPUT);
+    pinMode(13,OUTPUT) ;    
 }
 
 void loop()
 {
+    if( program[channel].getState() == recording ) 
+    {   REPEAT_MS( 500 )
+        {
+            PORTB ^= (1<<5);
+        }
+        END_REPEAT
+    }
+    else if( program[channel].getState() == playing )
+    {
+        PORTB |= (1<<5);
+    }
+    else
+    {
+        PORTB &= ~(1<<5);
+    }
+    
+
     Xnet.update() ;
     pwmController.update() ;
     debounceInputs() ;
