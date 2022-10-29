@@ -323,7 +323,7 @@ void processButtons()
     {
         if( buttonState[i] == FALLING )
         {
-            channel = i - 3 ;// temp disabled
+            channel = i - 3 ;
         }
     }
 
