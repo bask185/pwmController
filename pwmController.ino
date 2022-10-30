@@ -313,17 +313,22 @@ void notifyXNetgiveLocoFunc(uint8_t UserOps, uint16_t Address) // WHAT DOES THIS
 void processButtons()
 {
     // buttons 0-2 are the program control buttons
-    if( buttonState[0] == FALLING )   program[channel].startPlaying() ;
-    if( buttonState[1] == FALLING ) { program[channel].stopRecording() ;
-                                      program[channel].stopPlaying() ; }
-    if( buttonState[2] == FALLING )   program[channel].startRecording() ;
+    // if( buttonState[0] == FALLING )   program[channel].startPlaying() ;
+    // if( buttonState[1] == FALLING ) { program[channel].stopRecording() ;
+    //                                   program[channel].stopPlaying() ; }
+    // if( buttonState[2] == FALLING )   program[channel].startRecording() ;
 
     // buttons 3-7 are channel selection buttons
-    for( int i = 3 ; i < 8 ; i ++ )
+    for( int i = 0 ; i < 16 ; i ++ )
     {
         if( buttonState[i] == FALLING )
         {
             channel = i - 3 ;
+            for( int j = 0 ; j < 4 ; j++)
+            {
+                PORTB ^=  (1 <<5 ) ;
+                delay(300);
+            }
         }
     }
 
