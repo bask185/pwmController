@@ -26,10 +26,9 @@ enum events
 
 
 XpressNetMasterClass    Xnet ;
-EventHandler eventHandler( 0x0000, 0x7FFF ) ;
 const int pcfAddress = 0x21;
 
-Weistra pwmController( pwmPin1, pwmPin2, 30, 100 ) ;
+Weistra pwmController( pwmPin1, pwmPin2, 20, 100 ) ;
 
 SoftwareSerial debug(9,10) ;
 
@@ -314,17 +313,22 @@ void notifyXNetgiveLocoFunc(uint8_t UserOps, uint16_t Address) // WHAT DOES THIS
 void processButtons()
 {
     // buttons 0-2 are the program control buttons
-    if( buttonState[0] == FALLING )   program[channel].startPlaying() ;
-    if( buttonState[1] == FALLING ) { program[channel].stopRecording() ;
-                                      program[channel].stopPlaying() ; }
-    if( buttonState[2] == FALLING )   program[channel].startRecording() ;
+    // if( buttonState[0] == FALLING )   program[channel].startPlaying() ;
+    // if( buttonState[1] == FALLING ) { program[channel].stopRecording() ;
+    //                                   program[channel].stopPlaying() ; }
+    // if( buttonState[2] == FALLING )   program[channel].startRecording() ;
 
     // buttons 3-7 are channel selection buttons
-    for( int i = 3 ; i < 8 ; i ++ )
+    for( int i = 0 ; i < 16 ; i ++ )
     {
         if( buttonState[i] == FALLING )
         {
             channel = i - 3 ;
+            for( int j = 0 ; j < 4 ; j++)
+            {
+                PORTB ^=  (1 <<5 ) ;
+                delay(300);
+            }
         }
     }
 
@@ -378,11 +382,28 @@ void setup()
     
     debug.begin(9600) ;
     debug.println("PWM controller booted") ;
-    pinMode(13,OUTPUT);
+    pinMode(13,OUTPUT) ;    
 }
 
 void loop()
 {
+    if( program[channel].getState() == recording ) 
+    {   REPEAT_MS( 500 )
+        {
+            PORTB ^= (1<<5);
+        }
+        END_REPEAT
+    }
+    else if( program[channel].getState() == playing )
+    {
+        PORTB |= (1<<5);
+    }
+    else
+    {
+        PORTB &= ~(1<<5);
+    }
+    
+
     Xnet.update() ;
     pwmController.update() ;
     debounceInputs() ;
