@@ -1,3 +1,14 @@
+/* TODO
+make branch for control panel usage
+
+Add new file for the NX code.
+Also do rosedale abbey
+Multimaus must still be able to control servo motors in order to finetune.
+default positions must be loaded to EEPROM if not yet done.
+check pwm controller
+
+*/
+
 
 
 #include "src/io.h"
@@ -387,33 +398,16 @@ void setup()
 
 void loop()
 {
-    if( program[channel].getState() == recording ) 
-    {   REPEAT_MS( 500 )
-        {
-            PORTB ^= (1<<5);
-        }
-        END_REPEAT
-    }
-    else if( program[channel].getState() == playing )
-    {
-        PORTB |= (1<<5);
-    }
-    else
-    {
-        PORTB &= ~(1<<5);
-    }
-    
-
-    Xnet.update() ;
-    pwmController.update() ;
+    //Xnet.update() ;
+    //pwmController.update() ;
     debounceInputs() ;
-    processButtons() ;
-    sweepServos() ;
+    //processButtons() ;
+    //sweepServos() ;
     updateRelay() ;
-    for( int i = 0 ; i < nPrograms ; i ++ )
-    {
-       program[i].update() ;                 // run all 5 prorams
-    }    
+    // for( int i = 0 ; i < nPrograms ; i ++ )
+    // {
+    //    program[i].update() ;                 // run all 5 prorams
+    // }    
 }
 
 /* SK, some simple function to increment/decrement speed using input switches
