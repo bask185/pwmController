@@ -9,7 +9,6 @@
 #define servoPin7 9
 #define servoPin8 10
 #define statusLed 13
-#define pinNumber 14
 #define pwmPin1 A0
 #define pwmPin2 A1
 #define shortCircuit A2

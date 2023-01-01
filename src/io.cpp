@@ -21,7 +21,8 @@ static void initMcp(unsigned char address, unsigned int iodir, unsigned int pull
 	Wire.endTransmission();
 }
 
-extern void mcpWrite(unsigned char pin, unsigned char state) {
+extern void 
+Write(unsigned char pin, unsigned char state) {
 	unsigned char address = 0x20, port, IO;
 	address += (pin / 16);				// select address
 
@@ -75,7 +76,6 @@ extern void initIO(void) {
 	pinMode(servoPin7, OUTPUT);
 	pinMode(servoPin8, OUTPUT);
 	pinMode(statusLed, OUTPUT);
-	pinMode(pinNumber, INPUT);
 	pinMode(pwmPin1, OUTPUT);
 	pinMode(pwmPin2, OUTPUT);
 	pinMode(shortCircuit, INPUT);
