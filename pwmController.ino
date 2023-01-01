@@ -366,8 +366,8 @@ void loop()
     #endif
     pwmController.update() ;
     debounceInputs() ;
-    processButtons() ;
+    // processButtons() ; obsolete
     sweepServos() ;
     updateRelay() ;
-    program.update() ;                 // run all 5 prorams
+    // program.update() ; not yet in use
 }

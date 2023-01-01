@@ -1,7 +1,7 @@
 #include "nX.h"
 #include "src/macros.h"
 
-const int nPointsPerStreet = 6 ;
+const int nPointsPerStreet = 8 ;
 
 const int       C = 0x8000 ;          // CURVED
 const int       S = 0x0000 ;          // STRAIGHT
@@ -17,15 +17,15 @@ const int accessories[][nPointsPerStreet+3] =
     { 1, 8,   3|S, 1|S,                  lastPoint,     1, 8, 6, lastRelay }, 
     { 2, 6,   3|C, 4|C,                  lastPoint,     2, 6,    lastRelay },
     { 2, 7,   4|S,                       lastPoint,     2, 7,    lastRelay },
-    { 2, 8,   1|S, 3|C, 4|C              lastPoint,     2, 8,    lastRelay },
-    { 2, 9,   4|S, 2a|S, 2b|S,           lastPoint,     2, 9, 7  lastRelay },
+    { 2, 8,   1|S, 3|C, 4|C,             lastPoint,     2, 8,    lastRelay },
+    { 2, 9,   4|S, 2a|S, 2b|S,           lastPoint,     2, 9, 7, lastRelay },
     { 6, 8,   1|S,                       lastPoint,     6, 8,    lastRelay },
     { 7, 9,  2a|S, 2b|S,                 lastPoint,     7, 9,    lastRelay },
     { 8, 3,   1|C, 2a|S, 2b|S, 5|C, 6|S, lastPoint,     8, 3,    lastRelay },
     { 8, 4,   1|C, 2a|S, 2b|S, 5|C, 6|C, lastPoint,     8, 4,    lastRelay },
     { 8, 5,   1|C, 2a|S, 2b|S, 5|S,      lastPoint,     8, 5,    lastRelay },
-    { 9, 3,  2a|C, 2b|C,  5|C, 6|S       lastPoint,     9, 3,    lastRelay },
-    { 9, 4,  2a|C, 2b|C,  5|C, 6|C       lastPoint,     9, 4,    lastRelay },
+    { 9, 3,  2a|C, 2b|C,  5|C, 6|S,      lastPoint,     9, 3,    lastRelay },
+    { 9, 4,  2a|C, 2b|C,  5|C, 6|C,      lastPoint,     9, 4,    lastRelay },
     { 9, 5,  2a|C, 2b|C,  5|S,           lastPoint,     9, 5,    lastRelay },
 } ;
 
@@ -36,7 +36,7 @@ enum states
     getFirstButton,
     getSecondButton,
     getIndex,
-    setPoints,
+    setRoute,
     waitDepature,
     setRelays,
     waitArrival,
@@ -89,7 +89,7 @@ void runNx()
                 {
                     street = i ;
                     index = 2 ;                 // reset index before setting new street
-                    state = setPoints ;
+                    state = setRoute ;
                     goto indexFound ;
                 }
             }
@@ -98,7 +98,7 @@ void runNx()
         indexFound:
             break ;
 
-        case setPoints:
+        case setRoute:
             REPEAT_MS( 250 )
             {
                 point = accessories[street][index++] ;
@@ -112,6 +112,8 @@ void runNx()
                     address = point & 0x03FF ;
                     pointState = point >> 15 ;  
                     if( setPoints ) setPoints( address, address ) ;
+                    printNumber_("point set: ", address ) ;
+                    printNumberln(": ", pointState ) ;
                 }
             }
             END_REPEAT
@@ -129,15 +131,18 @@ void runNx()
                 else
                 {
                     relays |= (1 << relay ) ;
+                    printNumberln("relay set: ", relay ) ;
                 }
             break ;
 
         case waitDepature:
-            if(1) state = waitArrival ; // to be filled in
+            if(1) state = waitArrival ; // wait for train to start moving
             break ;
 
         case waitArrival:
             if(1) state = getFirstButton ;
+
+            // release control panel again.
             break ;
         }
     }
