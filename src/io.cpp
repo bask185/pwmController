@@ -79,5 +79,5 @@ extern void initIO(void) {
 	pinMode(pwmPin1, OUTPUT);
 	pinMode(pwmPin2, OUTPUT);
 	pinMode(shortCircuit, INPUT);
-	initMcp(0x20, 1111111111111111, 1111111111111111);
+	initMcp(0x20, 0b1111111111111111, 0b1111111111111111);
 }

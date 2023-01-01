@@ -2,7 +2,7 @@
 #ifndef MACROS
 #define MACROS
 
-// #define DEBUG
+#define DEBUG
 
 #define REPEAT_US(x)    { \
                             static uint32_t previousTime ;\

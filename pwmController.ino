@@ -19,7 +19,7 @@ check pwm controller
 #include "src/event.h"
 #include "src/servoSweep.h"
 #include "src/weistra.h"
-#include "src/XpressNetMaster.h"
+
 #include "Wire.h"
 
 
@@ -36,24 +36,20 @@ enum events
 } ;
 
 
-XpressNetMasterClass    Xnet ;
 const int pcfAddress = 0x21;
 
 Weistra pwmController( pwmPin1, pwmPin2, 20, 100 ) ;
 
-SoftwareSerial debug(9,10) ;
 
-const int nPrograms = 5 ;
-uint8_t channel ;
-EventHandler program[] =
-{
-    EventHandler( 0x0000, 0x1999, 0x50 ),  // 5 equal zones of memory for 24LC256 I2C EEPROM
-    EventHandler( 0x1999, 0x1999, 0x50 ),
-    EventHandler( 0x3332, 0x1999, 0x50 ),
-    EventHandler( 0x4CCB, 0x1999, 0x50 ),
-    EventHandler( 0x6664, 0x1999, 0x50 ),
-    // 0x7000 <-> 0x7FFF reserved for other
-} ;
+#ifdef DEBUG
+    #define debug Serial
+#else
+SoftwareSerial debug(9,10) ;
+#include "src/XpressNetMaster.h"
+XpressNetMasterClass    Xnet ;
+#endif
+
+EventHandler program( 0x0000, 0x7FFF, 0x50 ) ;
 
 
 /* things to do:
@@ -125,9 +121,9 @@ BACKLOG
 - add acceleration/decceleration to weistra 
 */
 
-uint8 relays ;
-uint8 relaysPrev ;
-int8 speed = 0 ;
+uint8_t relays ;
+uint8_t relaysPrev ;
+int8_t  speed = 0 ;
 bool accelerating = true ;
 
 const int mcpPins[] = {  // Software correction for physical mcp23017 pins
@@ -146,6 +142,7 @@ Debounce input[] =
 
 void debounceInputs()
 {
+    uint16_t IO ;
     REPEAT_MS( 5 )
     {
         byte pin = mcpPins[debounceIndex] ;
@@ -162,8 +159,8 @@ void debounceInputs()
 }
 
 uint8_t prevStates[6] = { 0, 0, 0, 0, 0, 0 } ;
-int8_t setPoint = 0 ;
-int8_t currentSpeed = 0 ;
+int8_t  setPoint = 0 ;
+int8_t  currentSpeed = 0 ;
 
 uint8_t lookUpSpeed( uint8_t speed )
 {
@@ -207,7 +204,7 @@ void notifyXNetLocoDrive28( uint16_t Address, uint8_t Speed )
     speedActual = map( speedActual, 0, 28, 0, SPEED_MAX ) ;           // map 28 speedsteps to 100 for weistra control
     if( Speed & 0x80 ) speedActual = -speedActual ;
     pwmController.setSpeed( speedActual ) ;
-    program[channel].storeEvent( speedEvent, 123, speedActual ) ;
+    program.storeEvent( speedEvent, 123, speedActual ) ;
 }
 
 void notifyXNetLocoDrive128( uint16_t Address, uint8_t Speed )
@@ -217,7 +214,7 @@ void notifyXNetLocoDrive128( uint16_t Address, uint8_t Speed )
     
     if( speedActual == 0 )
     {
-        program[channel].storeEvent( speedEvent, 123, speedActual ) ;
+        program.storeEvent( speedEvent, 123, speedActual ) ;
         pwmController.setSpeed( 0 ) ;
         return ;
     }
@@ -226,7 +223,7 @@ void notifyXNetLocoDrive128( uint16_t Address, uint8_t Speed )
 
     if( direction > 0 ) speedActual = -speedActual ;
     pwmController.setSpeed( speedActual ) ;
-    program[channel].storeEvent( speedEvent, 123, speedActual ) ;
+    program.storeEvent( speedEvent, 123, speedActual ) ;
 }
 
 
@@ -235,7 +232,7 @@ void setOutput( uint8_t Address, uint8_t functions )
 {
     if( Address == 3) return ;
 
-    program[channel].storeEvent( accessoryEvent,  Address, functions ) ; 
+    program.storeEvent( accessoryEvent,  Address, functions ) ; 
 
     uint8_t number = 1 ;
     uint8_t indexShift = 0 ;
@@ -313,49 +310,16 @@ void notifyXNetPower(uint8_t State)
 
 void notifyXNetgiveLocoInfo(uint8_t UserOps, uint16_t Address) // WHAT DOES THIS DO?
 {
+    #ifndef DEBUG
     Xnet.SetLocoInfo(UserOps, 0x00, 0x00, 0x00); //UserOps,Speed,F0,F1
+    #endif
 }
 
 void notifyXNetgiveLocoFunc(uint8_t UserOps, uint16_t Address) // WHAT DOES THIS DO?
 {
+    #ifndef DEBUG
     Xnet.SetFktStatus(UserOps, 0x00, 0x00); //Fkt4, Fkt5
-}
-
-void processButtons()
-{
-    // buttons 0-2 are the program control buttons
-    // if( buttonState[0] == FALLING )   program[channel].startPlaying() ;
-    // if( buttonState[1] == FALLING ) { program[channel].stopRecording() ;
-    //                                   program[channel].stopPlaying() ; }
-    // if( buttonState[2] == FALLING )   program[channel].startRecording() ;
-
-    // buttons 3-7 are channel selection buttons
-    for( int i = 0 ; i < 16 ; i ++ )
-    {
-        if( buttonState[i] == FALLING )
-        {
-            channel = i - 3 ;
-            for( int j = 0 ; j < 4 ; j++)
-            {
-                PORTB ^=  (1 <<5 ) ;
-                delay(300);
-            }
-        }
-    }
-
-    // buttons 8-15 are feedback buttons to control the programs with
-    for( int i = 8 ; i < 16 ; i ++ )
-    {
-        if( buttonState[i] == FALLING )
-        {
-            program[channel].storeEvent( FEEDBACK, i, 1  ) ;        // for recording
-
-            for( int j = 0 ; j < nPrograms ; j ++ )
-            {
-                program[j].sendFeedbackEvent( i ) ;                 // during playing. A feedback event is sent to all programs
-            }
-        }
-    }
+    #endif
 }
 
 void notifyEvent( uint8 type, uint16 address, uint8 data )                            // CALL BACK FUNCTION FROM EVENT.CPP
@@ -373,7 +337,7 @@ void updateRelay()
     {   relaysPrev = relays ;
 
         Wire.beginTransmission( pcfAddress ) ;
-        Wire.write( relays ) ;
+        Wire.write( relays ) ;       
         Wire.endTransmission() ;
     }
 }
@@ -383,71 +347,27 @@ void setup()
     Wire.begin() ;
     pwmController.begin() ;
     pwmController.currentMonitor( shortCircuit ) ;
-    for( int i = 0 ; i < nPrograms ; i ++ )
-    {   
-        program[ i ].begin() ;
-    }
-    initIO() ;
+    program.begin() ;
     initServos() ;
+    #ifndef DEBUG
     Xnet.setup( Loco28, RS485DIR ) ; // N.B. may need to change depending on what multimaus will do.
-    
+    #endif
     debug.begin(9600) ;
     debug.println("PWM controller booted") ;
     pinMode(13,OUTPUT) ;    
+    initIO() ;
 }
 
 void loop()
 {
-    //Xnet.update() ;
-    //pwmController.update() ;
+
+    #ifndef DEBUG
+    Xnet.update() ;
+    #endif
+    pwmController.update() ;
     debounceInputs() ;
-    //processButtons() ;
-    //sweepServos() ;
+    processButtons() ;
+    sweepServos() ;
     updateRelay() ;
-    // for( int i = 0 ; i < nPrograms ; i ++ )
-    // {
-    //    program[i].update() ;                 // run all 5 prorams
-    // }    
+    program.update() ;                 // run all 5 prorams
 }
-
-/* SK, some simple function to increment/decrement speed using input switches
-
-void updateThrottle( int8_t newSpeed )
-{
-    static bool     wait = 0 ;
-    static int8_t   speed = 0 ;
-
-
-    REPEAT_MS( 40 )
-    {
-        if( speed < MAX && throttle > -MAX ) speed += newSpeed ;
-        
-        if( setSpeed ) setSpeed( speed ) ;
-    }
-    END_REPEAT
-}
-extern void setSpeed( int8_t speed ) __attribute__((weak)) ;
-*/
-
-
-
-
-/* SK, same thing but with potentiometer instead
-void updateThrottle( int16_t newSpeed )
-{
-    static int8_t   speed = 0 ;
-
-    REPEAT_MS( 100 )
-    {
-        newSpeed = map( newSpeed, 0, 1023, -MAX, MAX ) ;
-        speed += (newSpeed - speed) / 4 ;
-        
-        //if( setSpeed ) setSpeed( speed ) ;
-        Serial.println( speed ) ;
-    }
-    END_REPEAT
-}
-
-extern void setSpeed( int8_t speed ) __attribute__((weak)) ;
-
-*/
