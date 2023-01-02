@@ -31,7 +31,7 @@
 	- fix range CV# Adr to uint16_t
 */
 
-#define DEBUG
+#include "macros.h"
 
 #ifndef DEBUG
 

@@ -45,3 +45,4 @@ extern void initServos() ;
 extern void sweepServos() ;
 extern void adjustServo( int8_t ) ;
 extern void setServo( uint8_t, uint8_t ) ;
+extern uint8_t getServo( uint8_t ) ;

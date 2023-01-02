@@ -144,6 +144,11 @@ void initServos()
     }
 }
 
+uint8_t getServo( uint8_t nServo )
+{
+    return servo[ nServo ].getState() ;
+}
+
 void setServo( uint8_t nServo, uint8_t state )
 {
     lastSetServo = nServo ;                             // keep track which servo was last to set.

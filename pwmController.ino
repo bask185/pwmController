@@ -9,8 +9,6 @@ check pwm controller
 
 */
 
-
-
 #include "src/io.h"
 #include "src/date.h"
 #include "src/version.h"
@@ -28,6 +26,11 @@ const int F5_F8 = 0x80 ;
 const int F11 = -3 ; // degrees at the time
 const int F12 =  3 ;
 const int SPEED_MAX = 50 ; 
+uint8_t speedFeedback ;
+
+const int nButtons = 16 ;
+
+EventHandler program( 0x0000, 0x7FFF, 0x50 ) ;
 
 enum events
 {
@@ -42,28 +45,31 @@ const int       S = 0x0000 ;          // STRAIGHT
 const int       lastPoint = 10000 ;   // must be in the end of every line in table to flag that the last point is set.
 const int       lastRelay = 10000 ;   // must be in the end of every line in table to flag that the last array
 extern uint8_t  relays ;
+const int       _2a = 2 ;
+const int       _2b = 22 ;
 
 // PANEEL KOEN
-const int accessories[][nPointsPerStreet+3] =
+const uint16_t accessories[][nPointsPerStreet+3] =
 {
-//   knoppen   wissels + standen    laatste wissel    relais
-    { 1, 6,   3|S,                       lastPoint,     1, 6,    lastRelay }, 
-    { 1, 8,   3|S, 1|S,                  lastPoint,     1, 8, 6, lastRelay }, 
-    { 2, 6,   3|C, 4|C,                  lastPoint,     2, 6,    lastRelay },
-    { 2, 7,   4|S,                       lastPoint,     2, 7,    lastRelay },
-    { 2, 8,   1|S, 3|C, 4|C,             lastPoint,     2, 8,    lastRelay },
-    { 2, 9,   4|S, 2a|S, 2b|S,           lastPoint,     2, 9, 7, lastRelay },
-    { 6, 8,   1|S,                       lastPoint,     6, 8,    lastRelay },
-    { 7, 9,  2a|S, 2b|S,                 lastPoint,     7, 9,    lastRelay },
-    { 8, 3,   1|C, 2a|S, 2b|S, 5|C, 6|S, lastPoint,     8, 3,    lastRelay },
-    { 8, 4,   1|C, 2a|S, 2b|S, 5|C, 6|C, lastPoint,     8, 4,    lastRelay },
-    { 8, 5,   1|C, 2a|S, 2b|S, 5|S,      lastPoint,     8, 5,    lastRelay },
-    { 9, 3,  2a|C, 2b|C,  5|C, 6|S,      lastPoint,     9, 3,    lastRelay },
-    { 9, 4,  2a|C, 2b|C,  5|C, 6|C,      lastPoint,     9, 4,    lastRelay },
-    { 9, 5,  2a|C, 2b|C,  5|S,           lastPoint,     9, 5,    lastRelay },
+//   knoppen   wissels + standen        laatste wissel    relais
+    { 1, 6,   3|S,                          lastPoint,     1, 6,    lastRelay }, 
+    { 1, 8,   3|S,   1|S,                   lastPoint,     1, 8, 6, lastRelay },
+    { 2, 6,   3|C,   4|C,                   lastPoint,     2, 6,    lastRelay },
+    { 2, 7,   4|S,                          lastPoint,     2, 7,    lastRelay },
+    { 2, 8,   1|S,   3|C,   4|C,            lastPoint,     2, 8,    lastRelay },
+    { 2, 9,   4|S, _2a|S, _2b|S,            lastPoint,     2, 9, 7, lastRelay },
+    { 6, 8,   1|S,                          lastPoint,     6, 8,    lastRelay },
+    { 7, 9, _2a|S, _2b|S,                   lastPoint,     7, 9,    lastRelay },
+    { 8, 3,   1|C, _2a|S, _2b|S, 5|C, 6|S,  lastPoint,     8, 3,    lastRelay },
+    { 8, 4,   1|C, _2a|S, _2b|S, 5|C, 6|C,  lastPoint,     8, 4,    lastRelay },
+    { 8, 5,   1|C, _2a|S, _2b|S, 5|S,       lastPoint,     8, 5,    lastRelay },
+    { 9, 3, _2a|C, _2b|C,   5|C, 6|S,       lastPoint,     9, 3,    lastRelay },
+    { 9, 4, _2a|C, _2b|C,   5|C, 6|C,       lastPoint,     9, 4,    lastRelay },
+    { 9, 5, _2a|C, _2b|C,   5|S,            lastPoint,     9, 5,    lastRelay },
 } ;
 
-const int nStreets = sizeof( accessories ) / sizeof( accessories[0][0] ) / nPointsPerStreet - 1 ; // calculate amount of streets, depending on the size of the table above
+const int nStreets = 14 ;
+// const int nStreets = sizeof( accessories[8] ) / sizeof( accessories[0][0] ) ; // calculate amount of streets, depending on the size of the table above
 
 enum states 
 {
@@ -86,8 +92,6 @@ const int pcfAddress = 0x21;
 
 Weistra pwmController( pwmPin1, pwmPin2, 50, 100 ) ;
 
-DebounceClass buttons
-
 #ifdef DEBUG
     #define debug Serial
 #else
@@ -95,9 +99,6 @@ SoftwareSerial debug(9,10) ;
 #include "src/XpressNetMaster.h"
 XpressNetMasterClass    Xnet ;
 #endif
-
-EventHandler program( 0x0000, 0x7FFF, 0x50 ) ;
-
 
 /* things to do:
 
@@ -248,6 +249,7 @@ uint8_t lookUpSpeed( uint8_t speed )
 void notifyXNetLocoDrive28( uint16_t Address, uint8_t Speed )
 {
     int8 speedActual = lookUpSpeed( Speed & 0b00011111 ) ;
+    speedFeedback = Speed ;
     speedActual = map( speedActual, 0, 28, 0, SPEED_MAX ) ;           // map 28 speedsteps to 100 for weistra control
     if( Speed & 0x80 ) speedActual = -speedActual ;
     pwmController.setSpeed( speedActual ) ;
@@ -258,6 +260,8 @@ void notifyXNetLocoDrive128( uint16_t Address, uint8_t Speed )
 {
     int8 speedActual = Speed & 0x7F ;
     int8 direction   = Speed >> 7 ;
+
+    speedFeedback = Speed ;
     
     if( speedActual == 0 )
     {
@@ -355,19 +359,7 @@ void notifyXNetPower(uint8_t State)
 }
 */
 
-void notifyXNetgiveLocoInfo(uint8_t UserOps, uint16_t Address) // WHAT DOES THIS DO?
-{
-    #ifndef DEBUG
-    Xnet.SetLocoInfo(UserOps, 0x00, 0x00, 0x00); //UserOps,Speed,F0,F1
-    #endif
-}
 
-void notifyXNetgiveLocoFunc(uint8_t UserOps, uint16_t Address) // WHAT DOES THIS DO?
-{
-    #ifndef DEBUG
-    Xnet.SetFktStatus(UserOps, 0x00, 0x00); //Fkt4, Fkt5
-    #endif
-}
 
 void notifyEvent( uint8 type, uint16 address, uint8 data )                            // CALL BACK FUNCTION FROM EVENT.CPP
 {
@@ -414,6 +406,7 @@ void loop()
     pwmController.update() ;
     debounceInputs() ;
     // processButtons() ; obsolete
+    runNx() ;
     sweepServos() ;
     updateRelay() ;
     // program.update() ; not yet in use
@@ -423,100 +416,160 @@ void loop()
 
 void runNx()
 {
-    uint16 point ;
-    uint16 relay ;
-    uint16 address ;
-    uint8  pointState ;
+    uint16  point ;
+    uint16  relay ;
+    uint16  address ;
+    uint8   pointState ;
 
-    for( int i = 0 ; i < nButtons ; i ++ )
+    switch( state )
     {
-        uint8 btnState = button[i].getState() ;
-
-        switch( state )
+    case getFirstButton:
+        for(int i = 0 ; i < nButtons ; i ++ )
         {
-        case getFirstButton:
-            if( btnState == FALLING )
+            if( buttonState[i] == FALLING )
             {
-                firstButton = i ;
-                state = getSecondButton ;
+                firstButton = i+1 ;
+                // state = getSecondButton ;
+                // printNumberln("firstButton ", firstButton ) ;
+                break ;
             }
-            break ;
+        }
+        break ;
 
-        case getSecondButton:
-            if( btnState == RISING  )
+    case getSecondButton:
+        for(int i = 0 ; i < nButtons ; i ++ )
+        {
+            if( buttonState[i] == RISING  )
             { 
                 state = getFirstButton ;
+                // printNumberln("released ", firstButton ) ;
+                break ;
             }
-            if( btnState == FALLING )
+            if( buttonState[i] == FALLING )
             {
-                secondButton = i ;
+                secondButton = i+1 ;
+                // printNumberln("secondButton ", secondButton ) ;
                 state = getIndex ;
+                break ;
             }
-            break ;
+        }
+        break ;
 
-        case getIndex:                          // 2 buttons are found, go find out which street matches with these buttons 
-            for( int i = 0 ; i < nStreets ; i ++ )
+    case getIndex:                          // 2 buttons are found, go find out which street matches with these buttons 
+        for( int i = 0 ; i < nStreets ; i ++ )
+        {
+            if(( accessories[i][0] == firstButton  && accessories[i][1] == secondButton )
+            ||   accessories[i][0] == secondButton && accessories[i][1] == firstButton )
             {
-                if(( accessories[i][0] == firstButton  && accessories[i][1] == secondButton )
-                ||   accessories[i][0] == secondButton && accessories[i][1] == firstButton )
-                {
-                    street = i ;
-                    index = 2 ;                 // reset index before setting new street
-                    state = setRoute ;
-                    goto indexFound ;
-                }
+                street = i ;
+                // printNumberln("street ", firstButton ) ;
+                
+                index = 2 ;                 // reset index before setting new street
+                state = setRoute ;
+                break ;
             }
+        }
 
-            state = getFirstButton ;        
-        indexFound:
-            break ;
+        state = getFirstButton ;        
+        break ;
 
-        case setRoute:
-            REPEAT_MS( 250 )
+    case setRoute:
+        REPEAT_MS( 250 )
+        {
+            point = accessories[street][index++] ;
+
+            if( point == lastPoint )
             {
-                point = accessories[street][index++] ;
-                if( point == lastPoint )
-                {
-                    state = setRelays ;
-                    break ;
-                }
-                else
-                {
-                    address = point & 0x03FF ;
-                    pointState = point >> 15 ;  
-                    if( setPoints ) setPoints( address, address ) ;
-                    printNumber_("point set: ", address ) ;
-                    printNumberln(": ", pointState ) ;
-                }
+                state = setRelays ;
+                break ;
             }
-            END_REPEAT
-            break ;
+            else
+            {
+                address = point & 0x03FF ;
+                pointState = point >> 15 ;  
+                //if( setPoints ) setPoints( address, address ) ;
+                // printNumber_("point set: ", address ) ;
+                // printNumberln(": ", pointState ) ;
+            }
+        }
+        END_REPEAT
+        break ;
 
-        case setRelays:
-            relays = 0 ;
+    case setRelays:
+        relays = 0 ;
 
-            relay = accessories[street][index++] ;
-                if( relay == lastRelay )
-                {
-                    state = waitDepature ;
-                    break ;
-                }
-                else
-                {
-                    relays |= (1 << relay ) ;
-                    printNumberln("relay set: ", relay ) ;
-                }
-            break ;
+        relay = accessories[street][index++] ;
+            if( relay == lastRelay )
+            {
+                state = waitDepature ;
+                break ;
+            }
+            else
+            {
+                relays |= (1 << relay ) ;
+                // printNumberln("relay set: ", relay ) ;
+            }
+        break ;
 
-        case waitDepature:
-            if(1) state = waitArrival ; // wait for train to start moving
-            break ;
+    case waitDepature:
+        if(1) state = waitArrival ; // wait for train to start moving
+        break ;
 
-        case waitArrival:
-            if(1) state = getFirstButton ;
+    case waitArrival:
+        if(1) state = getFirstButton ;
 
-            // release control panel again.
-            break ;
+        // release control panel again.
+        break ;
+    }
+}
+
+void notifyXNetgiveLocoInfo(uint8_t UserOps, uint16_t Address)
+{
+    Xnet.SetLocoInfo(UserOps, 0x00, 0x00, 0x00); //UserOps,Speed,F0,F1
+}
+
+void notifyXNetgiveLocoMM(uint8_t UserOps, uint16_t Address)
+{
+    uint8_t F0 = 0, F1 = 0 ;
+
+    if( Address == 2 )
+    {
+        F1 = relays >> 4 ;
+        F0 = relays & 0x0F ;
+    }
+    if( Address == 1 )
+    {
+        for( int i = 0 ; i < 8 ; i ++ )
+        {
+            if( getServo(i) )
+            {
+                if( i < 4 ) F0 |= 1 <<  i ;
+                else        F1 |= 1 << i-4 ;
+            }
         }
     }
-} 
+
+    Xnet.SetLocoInfoMM(UserOps, 0x04, speedFeedback, F0, F1, 0, 0); //Steps,Speed,F0,F1,F2,F3
+}
+
+
+void notifyXNetgiveLocoFunc(uint8_t UserOps, uint16_t Address)
+{
+    Xnet.SetFktStatus(UserOps, 0x00, 0x00); //Fkt4, Fkt5
+}
+
+void notifyXNetTrntInfo(uint8_t UserOps, uint8_t Address, uint8_t data)
+{
+    PORTB ^= 1 << 5;
+    byte pos = data << 4;
+    bitWrite(pos, 7, 1);
+    Xnet.SetTrntStatus(UserOps, Address, data); // was pos. idk anymore ;-(
+}
+
+void notifyXNetTrnt(uint16_t Address, uint8_t data)
+{
+    if( bitRead( data, 3 ) == 1 )
+    {
+        // fill me in
+    }
+}

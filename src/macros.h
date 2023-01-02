@@ -2,7 +2,7 @@
 #ifndef MACROS
 #define MACROS
 
-#define DEBUG
+// #define DEBUG
 
 #define REPEAT_US(x)    { \
                             static uint32_t previousTime ;\
@@ -19,9 +19,9 @@
 #define END_REPEAT          } \
                         }
 
-#define printNumber( txt, x )   Serial.print( txt ) ; Serial.print( x ) ;
-#define printNumber_( txt, x )  Serial.print( txt ) ; Serial.print( x ) ;Serial.write(' ');
-#define printNumberln( txt, x ) Serial.print( txt ) ; Serial.println( x ) ;
+// #define printNumber( txt, x )   Serial.print( txt ) ; Serial.print( x ) ;
+// #define printNumber_( txt, x )  Serial.print( txt ) ; Serial.print( x ) ;Serial.write(' ');
+// #define printNumberln( txt, x ) Serial.print( txt ) ; Serial.println( x ) ;
 
 // #define lowByte(x)          ((x) & 0x00FF )
 // #define highByte(x)         (((X) & 0xFF00 ) > 8)
