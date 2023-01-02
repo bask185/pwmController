@@ -560,10 +560,12 @@ void notifyXNetgiveLocoFunc(uint8_t UserOps, uint16_t Address)
 
 void notifyXNetTrntInfo(uint8_t UserOps, uint8_t Address, uint8_t data)
 {
-    PORTB ^= 1 << 5;
+    int adr = ((Address * 4) + ((data & 0x01) * 2));
     byte pos = data << 4;
-    bitWrite(pos, 7, 1);
-    Xnet.SetTrntStatus(UserOps, Address, data); // was pos. idk anymore ;-(
+    bitWrite(pos, 7, 1);   // command completed!
+    bitWrite(pos, 1, 1);   // this should send information for 2 points, experiment with this
+    bitWrite(pos, 3, 1);    
+    Xnet.SetTrntStatus(UserOps, Address, pos);
 }
 
 void notifyXNetTrnt(uint16_t Address, uint8_t data)
