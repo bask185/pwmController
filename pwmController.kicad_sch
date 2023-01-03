@@ -441,10 +441,16 @@
       (reference "Q1001") (unit 1) (value "AO3400A") (footprint "Package_TO_SOT_SMD:SOT-23")
     )
     (path "/5124c4e8-cf6f-404c-8295-c381ef25d08e/043e7a6a-adf2-47fb-ab14-e61c70b46c7a"
-      (reference "R201") (unit 1) (value "R") (footprint "Resistor_THT:R_Axial_DIN0516_L15.5mm_D5.0mm_P20.32mm_Horizontal")
+      (reference "R201") (unit 1) (value "0R01") (footprint "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder")
     )
-    (path "/5124c4e8-cf6f-404c-8295-c381ef25d08e/85f6b557-66aa-46d0-bfc9-3ec5d0c55ba3"
-      (reference "R202") (unit 1) (value "R") (footprint "Resistor_THT:R_Axial_DIN0516_L15.5mm_D5.0mm_P20.32mm_Horizontal")
+    (path "/5124c4e8-cf6f-404c-8295-c381ef25d08e/a5a0fe1a-b39b-4a8a-8c40-81d69b94d659"
+      (reference "R202") (unit 1) (value "0R01") (footprint "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder")
+    )
+    (path "/5124c4e8-cf6f-404c-8295-c381ef25d08e/faf6165d-81e9-4053-90bd-ef98eea88d59"
+      (reference "R203") (unit 1) (value "0R01") (footprint "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder")
+    )
+    (path "/5124c4e8-cf6f-404c-8295-c381ef25d08e/27b861fb-0a8a-4d28-95ea-32c9e92731dc"
+      (reference "R204") (unit 1) (value "0R01") (footprint "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder")
     )
     (path "/f2e2196a-c83d-497b-b552-0ac27a56ad59/64df28aa-6aca-4d72-9fae-1cd482ae8922"
       (reference "R501") (unit 1) (value "220k") (footprint "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
