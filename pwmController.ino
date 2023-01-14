@@ -17,8 +17,14 @@ check pwm controller
 #include "src/event.h"
 #include "src/servoSweep.h"
 #include "src/weistra.h"
-
 #include "Wire.h"
+
+#define mcpAddress 0x20
+#define portA	0x12
+#define portB	0x13
+#define iodirRegA	0x00
+#define pullUpRegA	0x0C
+
 
 
 const int F1_F4 = 0 ;
@@ -42,36 +48,37 @@ const int nPointsPerStreet = 8 ;
 
 const int       C = 0x8000 ;          // CURVED
 const int       S = 0x0000 ;          // STRAIGHT
-const int       lastPoint = 10000 ;   // must be in the end of every line in table to flag that the last point is set.
-const int       lastRelay = 10000 ;   // must be in the end of every line in table to flag that the last array
+const int       last = 10000 ;   // must be in the end of every line in table to flag that the last point is set.
 extern uint8_t  relays ;
-const int       _2a = 2 ;
-const int       _2b = 22 ;
 
-// PANEEL KOEN
+
+// PANEEL KOEN 3|S,                          last,
 const uint16_t accessories[][nPointsPerStreet+3] =
 {
 //   knoppen   wissels + standen        laatste wissel    relais
-    { 1, 6,   3|S,                          lastPoint,     1, 6,    lastRelay }, 
-    { 1, 8,   3|S,   1|S,                   lastPoint,     1, 8, 6, lastRelay },
-    { 2, 6,   3|C,   4|C,                   lastPoint,     2, 6,    lastRelay },
-    { 2, 7,   4|S,                          lastPoint,     2, 7,    lastRelay },
-    { 2, 8,   1|S,   3|C,   4|C,            lastPoint,     2, 8,    lastRelay },
-    { 2, 9,   4|S, _2a|S, _2b|S,            lastPoint,     2, 9, 7, lastRelay },
-    { 6, 8,   1|S,                          lastPoint,     6, 8,    lastRelay },
-    { 7, 9, _2a|S, _2b|S,                   lastPoint,     7, 9,    lastRelay },
-    { 8, 3,   1|C, _2a|S, _2b|S, 5|C, 6|S,  lastPoint,     8, 3,    lastRelay },
-    { 8, 4,   1|C, _2a|S, _2b|S, 5|C, 6|C,  lastPoint,     8, 4,    lastRelay },
-    { 8, 5,   1|C, _2a|S, _2b|S, 5|S,       lastPoint,     8, 5,    lastRelay },
-    { 9, 3, _2a|C, _2b|C,   5|C, 6|S,       lastPoint,     9, 3,    lastRelay },
-    { 9, 4, _2a|C, _2b|C,   5|C, 6|C,       lastPoint,     9, 4,    lastRelay },
-    { 9, 5, _2a|C, _2b|C,   5|S,            lastPoint,     9, 5,    lastRelay },
+    { 1, 6,   3|S,                          last,     1, 6,    last }, 
+    { 1, 8,   3|S,   1|S,                   last,     1, 6,    last },
+    { 2, 6,   3|C,   4|C,                   last,     2, 6,    last },
+    { 2, 7,   4|S,                          last,     2, 7,    last },
+    { 2, 8,   1|S, 3|C, 4|C,                last,     2, 6,    last },
+    { 2, 9,   4|S, 2|S, 7|S,                last,     2, 7, 8, last },
+    { 6, 8,   1|S,                          last,     6,       last },
+    { 7, 9,   2|S, 7|S,                     last,     7, 9,    last },
+    { 8, 3,   1|C, 2|S, 7|S, 5|C, 6|S,      last,     3,       last },
+    { 8, 4,   1|C, 2|S, 7|S, 5|C, 6|C,      last,     4,       last },
+    { 8, 5,   1|C, 2|S, 7|S, 5|S,           last,     5,       last },
+    { 9, 3,   2|C, 7|C, 5|C, 6|S,           last,     8, 3,    last },
+    { 9, 4,   2|C, 7|C, 5|C, 6|C,           last,     8, 4,    last },
+    { 9, 5,   2|C, 7|C, 5|S,                last,     8, 5,    last },
 } ;
 
-const int nStreets = 14 ;
+const int nStreets = 14 ;  // 1   2   3   4   5   6   7
+
+const uint8_t buttonLeds[] = {11, 14, 10, 10, 12, 13, 11} ;
+const uint8_t pointLeds[] = {11, 14, 10, 10, 12, 13, 11} ;
 // const int nStreets = sizeof( accessories[8] ) / sizeof( accessories[0][0] ) ; // calculate amount of streets, depending on the size of the table above
 
-enum states 
+enum states
 {
     getFirstButton,
     getSecondButton,
@@ -82,11 +89,13 @@ enum states
     waitArrival,
 } ;
 
+
 uint8 state = getFirstButton ;
 
 uint8 firstButton, secondButton ;
 uint8 index = 0 ;
 uint8 street ;
+int8_t speedActual ;
 
 const int pcfAddress = 0x21;
 
@@ -100,109 +109,55 @@ SoftwareSerial debug(9,10) ;
 XpressNetMasterClass    Xnet ;
 #endif
 
-/* things to do:
-
-PCB stuff
-- SEPERATE PCB FOR CURRENT SENSING
-- SEPERATE PCB FOR MOSFET CONTROLLING
-- MAKE NEW BRANCH OF FunctionBloX 
-
-
-code stuff
-- get eventhandler to work   (HALFWAY THERE)
-  V record/play PWM movements
-  V record/play servos
-  - record/play relays() propably works)
-  - record input pins (not tested, may work already)
-  - use separate channels
-  - reserve 2 buttons (7 & 8) for train movements (ALSO, V2 HAS POTENTIOMETERS, DISCARD THIS?)
-    (actually not needed maus is still needed to control IO, so might
-    as well drive with it)
-
-- different mode (#IFDEF OTHER MODE?)
-   Use inputs to correctly control servos & relays
-
-NOTE:
--  may just Function Blox for this?
-  unused inputs should perhaps serve as feedback automatically?
-  or make separate feedback objects without outgoing or ingoing links?
-
-Make default Function Blox programs for different modi.
-- let multimaus control relay & servos via FunctionBlox
-
-FUNCTION BLOX STUFF:
-- add Xnet methods
-    RECEIVING
-      loco speed (fixed address) (analog signal can be mapped and repurpose'd)
-      loco function( fixed address) (digital out)
-      point (fixed address)
-    
-    TRANSMITTING
-      loco speed( variable address, variable speed) // can always fix address with a constant
-      loco function( variable address, fixed state, F0- F10 )
-      point( fixed or variable address?, state)
-
-
-- add PWM controller
-- add Stepper motor (with homing?) 3 inputs max, think of something.
-  teachin-able with multimaus
-- direct maus to stepper control
-- direct maus to servo control?
-- potentiometers to servo/stepper
-- need an analog latch block. This would allow me to connect analog input to several servo's with one at the time.
-  perhaps latch the servo's/steppers themselfes.
-
-
-- may want to alter the stop button to double act as the record button by holding it for 2 seconds
-  get code from hand controller
-
-V test MCP inputs
-- test PCF output (relais)
-V test servo motors
-V get XpressNet control functions to work
-V test pwm controller working well in one try! 2 pin control.
-V add shorcircuit code to weistra
-V make motors configurable
-- solder motor 1
-
-BACKLOG
-- add acceleration/decceleration to weistra 
-*/
-
 uint8_t relays ;
 uint8_t relaysPrev ;
 int8_t  speed = 0 ;
 bool accelerating = true ;
 
-const int mcpPins[] = {  // Software correction for physical mcp23017 pins
-  7, 6, 5, 4, 3, 2, 1, 0, 8, 9, 10, 11, 12, 13, 14, 15, 
-} ;
+// const int mcpPins[] = {  // Software correction for physical mcp23017 pins
+//   7, 6, 5, 4, 3, 2, 1, 0, 8, 9, 10, 11, 12, 13, 14, 15, 
+// } ;
+
 uint8_t buttonState[16] ;
 
 uint8 debounceIndex = 0 ;
-Debounce input[] = 
-{
-    Debounce(255), Debounce(255), Debounce(255), Debounce(255),
-    Debounce(255), Debounce(255), Debounce(255), Debounce(255),
-    Debounce(255), Debounce(255), Debounce(255), Debounce(255),
-    Debounce(255), Debounce(255), Debounce(255), Debounce(255),
-} ;
+Debounce input(255) ;
 
 void debounceInputs()
 {
     uint16_t IO ;
-    REPEAT_MS( 5 )
+    static uint16_t prevIO ;
+    REPEAT_MS( 1000 )
     {
-        byte pin = mcpPins[debounceIndex] ;
-        byte state = mcpRead(pin) ;
-        input[ debounceIndex].debounce( state ) ;
-        if( ++ debounceIndex == 16 ) debounceIndex = 0 ;   
+        Serial.println("getting IO");
+        Wire.beginTransmission( mcpAddress ) ;
+        Wire.write( portA ) ;
+        Wire.endTransmission() ;
+        Wire.requestFrom( mcpAddress, 2 ) ;
+        IO = (Wire.read() << 8) | Wire.read() ;  
+
+        Serial.println(IO,BIN); 
+
     }
     END_REPEAT
 
-    for( int i = 0 ; i < 16 ; i ++ )
+    for( int i = 0 ; i < 11 ; i ++ )
     {
-        buttonState[i] = input[i].getState() ;
+        buttonState[i] = HIGH ;
+    }
+
+    if( IO != prevIO )
+    {
+        for( int i = 0 ; i < 11 ; i ++ )
+        {
+            if((    IO & (1<<i)) 
+            != (prevIO & (1<<i)))
+            {
+                buttonState[i] = FALLING ;
+                
+            }
+        }
+        prevIO = IO ;
     }
 }
 
@@ -248,7 +203,7 @@ uint8_t lookUpSpeed( uint8_t speed )
 
 void notifyXNetLocoDrive28( uint16_t Address, uint8_t Speed )
 {
-    int8 speedActual = lookUpSpeed( Speed & 0b00011111 ) ;
+    speedActual = lookUpSpeed( Speed & 0b00011111 ) ;
     speedFeedback = Speed ;
     speedActual = map( speedActual, 0, 28, 0, SPEED_MAX ) ;           // map 28 speedsteps to 100 for weistra control
     if( Speed & 0x80 ) speedActual = -speedActual ;
@@ -258,7 +213,7 @@ void notifyXNetLocoDrive28( uint16_t Address, uint8_t Speed )
 
 void notifyXNetLocoDrive128( uint16_t Address, uint8_t Speed )
 {
-    int8 speedActual = Speed & 0x7F ;
+    speedActual = Speed & 0x7F ;
     int8 direction   = Speed >> 7 ;
 
     speedFeedback = Speed ;
@@ -381,9 +336,12 @@ void updateRelay()
     }
 }
 
+
+
 void setup()
 {
     Wire.begin() ;
+
     pwmController.begin() ;
     pwmController.currentMonitor( shortCircuit ) ;
     program.begin() ;
@@ -391,10 +349,16 @@ void setup()
     #ifndef DEBUG
     Xnet.setup( Loco28, RS485DIR ) ; // N.B. may need to change depending on what multimaus will do.
     #endif
-    debug.begin(9600) ;
+   
+
+    Wire.beginTransmission(mcpAddress);
+    Wire.write(iodirRegA);
+    Wire.write(0b11111111);
+    Wire.write(0b10000000);
+    Wire.endTransmission();
+
+    debug.begin( 9600 ) ;
     debug.println("PWM controller booted") ;
-    pinMode(13,OUTPUT) ;    
-    initIO() ;
 }
 
 void loop()
@@ -405,16 +369,15 @@ void loop()
     #endif
     pwmController.update() ;
     debounceInputs() ;
-    // processButtons() ; obsolete
-    runNx() ;
+     runNx() ;
     sweepServos() ;
     updateRelay() ;
-    // program.update() ; not yet in use
+    program.update() ; // not yet in use
 }
 
 
 
-void runNx()
+void runNx()    
 {
     uint16  point ;
     uint16  relay ;
@@ -429,8 +392,8 @@ void runNx()
             if( buttonState[i] == FALLING )
             {
                 firstButton = i+1 ;
-                // state = getSecondButton ;
-                // printNumberln("firstButton ", firstButton ) ;
+                state = getSecondButton ;
+                printNumberln("firstButton ", firstButton ) ;
                 break ;
             }
         }
@@ -478,18 +441,16 @@ void runNx()
         {
             point = accessories[street][index++] ;
 
-            if( point == lastPoint )
+            if( point == last )
             {
                 state = setRelays ;
                 break ;
             }
             else
             {
-                address = point & 0x03FF ;
+                uint16_t address = point & 0x03FF ;
                 pointState = point >> 15 ;  
-                //if( setPoints ) setPoints( address, address ) ;
-                // printNumber_("point set: ", address ) ;
-                // printNumberln(": ", pointState ) ;
+                setServo( address, pointState ) ;
             }
         }
         END_REPEAT
@@ -499,7 +460,7 @@ void runNx()
         relays = 0 ;
 
         relay = accessories[street][index++] ;
-            if( relay == lastRelay )
+            if( relay == last )
             {
                 state = waitDepature ;
                 break ;
@@ -512,17 +473,16 @@ void runNx()
         break ;
 
     case waitDepature:
-        if(1) state = waitArrival ; // wait for train to start moving
+        if( speedActual != 0 ) state = waitArrival ;
         break ;
 
     case waitArrival:
-        if(1) state = getFirstButton ;
-
-        // release control panel again.
+        if( speedActual == 0 ) state = getFirstButton ;
         break ;
     }
 }
 
+#ifndef DEBUG
 void notifyXNetgiveLocoInfo(uint8_t UserOps, uint16_t Address)
 {
     Xnet.SetLocoInfo(UserOps, 0x00, 0x00, 0x00); //UserOps,Speed,F0,F1
@@ -575,3 +535,4 @@ void notifyXNetTrnt(uint16_t Address, uint8_t data)
         // fill me in
     }
 }
+#endif
