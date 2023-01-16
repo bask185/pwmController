@@ -78,8 +78,8 @@ const uint16_t accessories[][nPointsPerStreet+3] =
 
 const int nStreets = 15 ;  // 1   2   3   4   5   6   7
 
-const uint8_t buttonLed[] = {255, 7, 6, 5, 4, 3, 2, 1, 0, 8} ;
-const uint8_t pointLed[] = {255, 10, 10,  9,  9, 12, 11, 13 } ;
+const uint8_t buttonLed[] = {255,  7,  6,  5,  4,  3,  2,  1, 0, 8} ;
+const uint8_t  pointLed[] = {255, 10, 10,  9,  9, 12, 11, 13 } ;
 // const int nStreets = sizeof( accessories[8] ) / sizeof( accessories[0][0] ) ; // calculate amount of streets, depending on the size of the table above
 
 enum states
@@ -285,8 +285,9 @@ void setOutput( uint8_t Address, uint8_t functions )
             if( functions & bitMask ) state = 1 ;    // on
             else                      state = 0 ;    // off        
 
-            if(      ioNumber <=  8 ) { setServo( ioNumber - 1 , state ) ;  }                   //  1 <->  8
-            else if( ioNumber <= 18 ) { bitWrite( relays, ioNumber-11, state ) ; }              // 11 <-> 18
+            if(      ioNumber <=  8 ) { setLed( pointLed[ioNumber], state + 1 ) ;
+                                        setServo( ioNumber - 1 , state ) ;  }                   //  1 <->  8
+            else if( ioNumber <= 18 ) { bitWrite( relays, ioNumber-11, state ) ; }              // 11 <-> 18 .. ADD BUTTON LEDS HERE
             //                                                                                  // 21 <-> 28  address 3 not used.
             // else if( ioNumber <= 38 ) setRoute( ioNumber - 31 ) ;                            // 31 <-> 38
             // else if( ioNumber <= 48 ) ;                                                      // 41 <-> 48
@@ -348,8 +349,6 @@ void updateRelay()
         Wire.write( relays ) ;       
         Wire.endTransmission() ;
 
-        Serial.print("setting relays: ");
-        Serial.println(relays,BIN);
     }
 }
 
@@ -535,6 +534,8 @@ void runNx()
             else
             {
                 relays |= (1 << (relay-1) ) ;
+                if( relay == 6 ) setLed( buttonLed[6], STRAIGHT ) ;
+                if( relay == 7 ) setLed( buttonLed[7], STRAIGHT ) ;
                 printNumberln("relay set: ", relay ) ;
             }
         }
@@ -553,17 +554,15 @@ void runNx()
         break ;
 
     case freeRoute:
-        if( buttonState[0] == FALLING )
+        for( int i = 1 ; i < 10 ; i ++ )
         {
-            for( int i = 1 ; i < 10 ; i ++ )
-            {
-                setLed( buttonLed[i], OFF ) ;
-                
-            }
-            //if( buttonState )
-            state = getFirstButton ;
-            printNumberln("RESETTING ", state) ;
+            setLed( buttonLed[i], OFF ) ;
+            if( i < 8 ) setLed( pointLed[i], STRAIGHT ) ; // FIXME to be according to the real state.
         }
+        //if( buttonState )
+        state = getFirstButton ;
+        printNumberln("RESETTING ", state) ;
+        break ;
     }
 }
 
