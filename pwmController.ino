@@ -17,15 +17,16 @@ check pwm controller
 #include "src/event.h"
 #include "src/servoSweep.h"
 #include "src/weistra.h"
+#include "src/mcp23017.h"
 #include "Wire.h"
 
 #define mcpAddress 0x20
 #define portA	0x12
 #define portB	0x13
 #define iodirRegA	0x00
+#define iodirRegB	0x01
 #define pullUpRegA	0x0C
-
-
+#define pullUpRegB	0x0D
 
 const int F1_F4 = 0 ;
 const int F5_F8 = 0x80 ;
@@ -49,7 +50,9 @@ const int nPointsPerStreet = 8 ;
 const int       C = 0x8000 ;          // CURVED
 const int       S = 0x0000 ;          // STRAIGHT
 const int       last = 10000 ;   // must be in the end of every line in table to flag that the last point is set.
-extern uint8_t  relays ;
+const int       STRAIGHT = 1 ;
+const int       CURVED = 2 ;
+const int       OFF = 0 ;
 
 
 // PANEEL KOEN 3|S,                          last,
@@ -64,18 +67,19 @@ const uint16_t accessories[][nPointsPerStreet+3] =
     { 2, 9,   4|S, 2|S, 7|S,                last,     2, 7, 8, last },
     { 6, 8,   1|S,                          last,     6,       last },
     { 7, 9,   2|S, 7|S,                     last,     7, 9,    last },
-    { 8, 3,   1|C, 2|S, 7|S, 5|C, 6|S,      last,     3,       last },
-    { 8, 4,   1|C, 2|S, 7|S, 5|C, 6|C,      last,     4,       last },
-    { 8, 5,   1|C, 2|S, 7|S, 5|S,           last,     5,       last },
-    { 9, 3,   2|C, 7|C, 5|C, 6|S,           last,     8, 3,    last },
-    { 9, 4,   2|C, 7|C, 5|C, 6|C,           last,     8, 4,    last },
-    { 9, 5,   2|C, 7|C, 5|S,                last,     8, 5,    last },
+    { 8, 3,   1|C, 2|C, 7|C, 5|S, 6|S,      last,     3,       last },
+    { 8, 4,   1|C, 2|C, 7|C, 5|S, 6|C,      last,     4,       last },
+    { 8, 5,   1|C, 2|C, 7|C, 5|C,           last,     5,       last },
+    { 9, 3,        2|S, 7|C, 5|S, 6|S,      last,     8, 3,    last },
+    { 9, 4,        2|S, 7|C, 5|S, 6|C,      last,     8, 4,    last },
+    { 9, 5,        2|S, 7|C, 5|C,           last,     8, 5,    last },
+    { 7, 8,   1|C, 7|S,                     last,     7,       last },
 } ;
 
-const int nStreets = 14 ;  // 1   2   3   4   5   6   7
+const int nStreets = 15 ;  // 1   2   3   4   5   6   7
 
-const uint8_t buttonLeds[] = {11, 14, 10, 10, 12, 13, 11} ;
-const uint8_t pointLeds[] = {11, 14, 10, 10, 12, 13, 11} ;
+const uint8_t buttonLed[] = {255, 7, 6, 5, 4, 3, 2, 1, 0, 8} ;
+const uint8_t pointLed[] = {255, 10, 10,  9,  9, 12, 11, 13 } ;
 // const int nStreets = sizeof( accessories[8] ) / sizeof( accessories[0][0] ) ; // calculate amount of streets, depending on the size of the table above
 
 enum states
@@ -87,6 +91,7 @@ enum states
     waitDepature,
     setRelays,
     waitArrival,
+    freeRoute,
 } ;
 
 
@@ -109,35 +114,31 @@ SoftwareSerial debug(9,10) ;
 XpressNetMasterClass    Xnet ;
 #endif
 
-uint8_t relays ;
 uint8_t relaysPrev ;
+uint8_t  relays ;
 int8_t  speed = 0 ;
 bool accelerating = true ;
-
-// const int mcpPins[] = {  // Software correction for physical mcp23017 pins
-//   7, 6, 5, 4, 3, 2, 1, 0, 8, 9, 10, 11, 12, 13, 14, 15, 
-// } ;
 
 uint8_t buttonState[16] ;
 
 uint8 debounceIndex = 0 ;
 Debounce input(255) ;
 
+const int mcpPins[] = {  // Software correction for physical mcp23017 pins
+  9, 255, 255, 255, 255, 255, 255, 255, 8, 7, 6, 5, 4, 3, 2, 1
+} ;
+
 void debounceInputs()
 {
     uint16_t IO ;
-    static uint16_t prevIO ;
-    REPEAT_MS( 1000 )
+    static uint16_t prevIO = 0xFFFF ;
+    REPEAT_MS( 50 )
     {
-        Serial.println("getting IO");
         Wire.beginTransmission( mcpAddress ) ;
         Wire.write( portA ) ;
         Wire.endTransmission() ;
         Wire.requestFrom( mcpAddress, 2 ) ;
         IO = (Wire.read() << 8) | Wire.read() ;  
-
-        Serial.println(IO,BIN); 
-
     }
     END_REPEAT
 
@@ -148,13 +149,26 @@ void debounceInputs()
 
     if( IO != prevIO )
     {
-        for( int i = 0 ; i < 11 ; i ++ )
+        for( int i = 0 ; i < 16 ; i ++ )
         {
             if((    IO & (1<<i)) 
-            != (prevIO & (1<<i)))
+            != (prevIO & (1<<i)) )
             {
-                buttonState[i] = FALLING ;
-                
+                if( !(IO & (1<<i)) )
+                {
+                    uint8_t pin = mcpPins[i] ;  
+                    if( pin == 255 ) break ;
+                    
+                    buttonState[mcpPins[i]-1] = FALLING ;
+                    printNumberln("FALLING ", pin) ;
+                    prevIO = IO ;
+                }
+                else
+                {
+                    uint8_t pin = mcpPins[i] ; 
+                    printNumberln("RISING ", pin) ;
+                    buttonState[mcpPins[i]-1] = RISING ;
+                }
             }
         }
         prevIO = IO ;
@@ -333,6 +347,42 @@ void updateRelay()
         Wire.beginTransmission( pcfAddress ) ;
         Wire.write( relays ) ;       
         Wire.endTransmission() ;
+
+        Serial.print("setting relays: ");
+        Serial.println(relays,BIN);
+    }
+}
+
+// MOVE ME OUT OF HERE INTO THE .INO
+void setLed( uint8_t pin, uint8_t state ) // CURVED, STRAIGHT, OFF
+{
+    uint8_t val ;
+    uint8_t port  =  portA ;
+    uint8_t ioDir = iodirRegA ;
+
+    if( pin >= 8 )
+    {
+        pin  -= 8 ;
+        port  =  portB ;
+        ioDir = iodirRegB ;
+    }
+
+    if( state > OFF ) // STRAIGHT OR CURVED
+    {
+        val = readRegister( ioDir ) ;  // set pin to output
+        bitWrite( val, pin, 0 ) ;
+        writeRegister( ioDir, val ) ;
+
+        val = readRegister( port ) ;
+        if( state == CURVED ) { bitWrite( val, pin, 1 ) ; } // curved
+        else                  { bitWrite( val, pin, 0 ) ; } // straight
+        writeRegister( port, val ) ;
+    }
+    else    // OFF
+    {
+        val = readRegister( ioDir ) ;  // set pin to input (kills the leds)
+        bitWrite( val, pin, 1 ) ;
+        writeRegister( ioDir, val ) ;
     }
 }
 
@@ -354,22 +404,28 @@ void setup()
     Wire.beginTransmission(mcpAddress);
     Wire.write(iodirRegA);
     Wire.write(0b11111111);
-    Wire.write(0b10000000);
+    Wire.write(0b11000001);
+    Wire.endTransmission();
+
+    Wire.beginTransmission(mcpAddress);
+    Wire.write(pullUpRegA);
+    Wire.write(0b11111111);
+    Wire.write(0b11000001);
     Wire.endTransmission();
 
     debug.begin( 9600 ) ;
     debug.println("PWM controller booted") ;
 }
 
+
 void loop()
 {
-
     #ifndef DEBUG
     Xnet.update() ;
     #endif
     pwmController.update() ;
     debounceInputs() ;
-     runNx() ;
+    runNx() ;
     sweepServos() ;
     updateRelay() ;
     program.update() ; // not yet in use
@@ -387,6 +443,8 @@ void runNx()
     switch( state )
     {
     case getFirstButton:
+        firstButton = 0 ;
+        secondButton = 0 ;
         for(int i = 0 ; i < nButtons ; i ++ )
         {
             if( buttonState[i] == FALLING )
@@ -404,14 +462,14 @@ void runNx()
         {
             if( buttonState[i] == RISING  )
             { 
-                state = getFirstButton ;
-                // printNumberln("released ", firstButton ) ;
+                state = freeRoute ;
+                printNumberln("released ", firstButton ) ;
                 break ;
             }
             if( buttonState[i] == FALLING )
             {
                 secondButton = i+1 ;
-                // printNumberln("secondButton ", secondButton ) ;
+                printNumberln("secondButton ", secondButton ) ;
                 state = getIndex ;
                 break ;
             }
@@ -425,19 +483,25 @@ void runNx()
             ||   accessories[i][0] == secondButton && accessories[i][1] == firstButton )
             {
                 street = i ;
-                // printNumberln("street ", firstButton ) ;
-                
+                printNumberln("street found ", street ) ;
+                for( int i = 1 ; i < 8 ; i ++ )
+                {
+                    setLed( pointLed[i], OFF ) ;
+                }
+                setLed( buttonLed[firstButton], STRAIGHT ) ;
+                setLed( buttonLed[secondButton], STRAIGHT ) ;
                 index = 2 ;                 // reset index before setting new street
                 state = setRoute ;
-                break ;
+                return ;
             }
         }
 
-        state = getFirstButton ;        
+        state = freeRoute ;
+        printNumberln("no index found ", 0) ;
         break ;
 
     case setRoute:
-        REPEAT_MS( 250 )
+        REPEAT_MS( 333 )
         {
             point = accessories[street][index++] ;
 
@@ -451,6 +515,8 @@ void runNx()
                 uint16_t address = point & 0x03FF ;
                 pointState = point >> 15 ;  
                 setServo( address, pointState ) ;
+                setLed( pointLed[address], pointState+1 ) ;
+                printNumberln("point set", address) ;
             }
         }
         END_REPEAT
@@ -458,8 +524,9 @@ void runNx()
 
     case setRelays:
         relays = 0 ;
-
-        relay = accessories[street][index++] ;
+        while( state == setRelays )
+        {
+            relay = accessories[street][index++] ;
             if( relay == last )
             {
                 state = waitDepature ;
@@ -467,18 +534,36 @@ void runNx()
             }
             else
             {
-                relays |= (1 << relay ) ;
-                // printNumberln("relay set: ", relay ) ;
+                relays |= (1 << (relay-1) ) ;
+                printNumberln("relay set: ", relay ) ;
             }
+        }
         break ;
 
     case waitDepature:
+    #ifndef DEBUG
         if( speedActual != 0 ) state = waitArrival ;
+    #else
+        state = freeRoute ;
+    #endif
         break ;
 
     case waitArrival:
-        if( speedActual == 0 ) state = getFirstButton ;
+        if( speedActual == 0 ) state = freeRoute ;
         break ;
+
+    case freeRoute:
+        if( buttonState[0] == FALLING )
+        {
+            for( int i = 1 ; i < 10 ; i ++ )
+            {
+                setLed( buttonLed[i], OFF ) ;
+                
+            }
+            //if( buttonState )
+            state = getFirstButton ;
+            printNumberln("RESETTING ", state) ;
+        }
     }
 }
 

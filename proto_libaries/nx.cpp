@@ -202,36 +202,3 @@ void runNx()
     }
 }
 
-
-// MOVE ME OUT OF HERE INTO THE .INO
-void setLed( uint8_t pin, uint8_t state ) // CURVED, STRAIGHT, OFF
-{
-    uint8_t val ;
-    uint8_t port  =  portA ;
-    uint8_t ioDir = ioDirA ;
-
-    if( pin >= 8 )
-    {
-        pin  -= 8 ;
-        port  =  portB ;
-        ioDir = ioDirB ;
-    }
-
-    if( state > OFF ) // STRAIGHT OR CURVED
-    {
-        val = readRegister( ioDir ) ;  // set pin to output
-        bitWrite( val, pin, 0 ) ;
-        writeRegister( ioDirA, val ) ;
-
-        val = readRegister( port ) ;
-        if( state = CURVED ) { bitWrite( val, pin, 1 ) ; } // curved
-        else                 { bitWrite( val, pin, 0 ) ; } // straight
-        writeRegister( port, val ) ;
-    }
-    else    // OFF
-    {
-        val = readRegister( ioDir ) ;  // set pin to input (kills the leds)
-        bitWrite( val, pin, 1 ) ;
-        writeRegister( ioDir, val ) ;
-    }
-}
