@@ -5,7 +5,7 @@
 class I2cEeprom
 {
 public:
-    I2cEeprom() ;
+    //I2cEeprom() ;
     I2cEeprom( uint8 ) ;
 
     void begin( uint8 ) ;

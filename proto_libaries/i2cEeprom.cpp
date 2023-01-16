@@ -1,7 +1,7 @@
 #include "i2cEeprom.h"
 #include <Wire.h>
 
-I2cEeprom::I2cEeprom() {;}
+//I2cEeprom::I2cEeprom() {;}
 I2cEeprom::I2cEeprom( uint8 addr )
 {
     i2cAddress = addr ;
