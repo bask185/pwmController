@@ -3,7 +3,9 @@
 #include "i2cEeprom.h"
 
 /* STEPS TO MAKE
-- todo get the street from EEPROM after it is retreived.
+V todo get the street from EEPROM
+* make a new branch and make project compilable
+* remake the .ino file to work with the new functions.
 */
 
 
@@ -35,12 +37,8 @@ const int   sizeAddress  = 0x6FFE ;
 const int   startAddress = 0x6FFF ; // should be the last free 4096 bytes memory in a 24LC256 EEPROM
 
 const int   NA   = 0xFF ;
-const int   last = 10000 ;   // must be in the end of every line in table to flag that the last point is set.
+const int   last = 10000 ;
 const int   maxCombinations = 128 ;
-
-// PANEEL KOEN 3|S,                          last,
-uint16_t street[maxCombinations][nPointsPerStreet+3] ;
-
 
 struct
 {
@@ -52,8 +50,6 @@ struct
 
 uint8_t nButtons ;
 uint8_t nStreets ;
-
-
 
 void NxBegin( uint8_t _relaisPresent, uint8_t _freeRouteOnTrain, uint8_t _directionMatters )
 {
@@ -211,12 +207,13 @@ void runNx()
 void setLed( uint8_t pin, uint8_t state ) // CURVED, STRAIGHT, OFF
 {
     uint8_t val ;
-    uint8_t port  = portA ;
+    uint8_t port  =  portA ;
     uint8_t ioDir = ioDirA ;
+
     if( pin >= 8 )
     {
-        pin -= 8 ;
-        port  = portB ;
+        pin  -= 8 ;
+        port  =  portB ;
         ioDir = ioDirB ;
     }
 
