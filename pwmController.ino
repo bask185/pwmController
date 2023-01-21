@@ -102,6 +102,9 @@ uint8 index = 0 ;
 uint8 street ;
 int8_t speedActual ;
 
+const uint32_t decouplerTime    = 2500 ; // decoupler time in ms
+const uint32_t recordPressTime  = 2500 ;
+
 const int pcfAddress = 0x21;
 
 Weistra pwmController( pwmPin1, pwmPin2, 50, 100 ) ;
@@ -115,18 +118,20 @@ XpressNetMasterClass    Xnet ;
 #endif
 
 uint8_t relaysPrev ;
-uint8_t  relays ;
+uint8_t relays ;
 int8_t  speed = 0 ;
-bool accelerating = true ;
+bool    accelerating = true ;
+bool    decouplerSet = false ;
 
 uint8_t buttonState[16] ;
 
 uint8 debounceIndex = 0 ;
-Debounce input(255) ;
+Debounce programButton( 255 ) ;
+
 
 const int mcpPins[] = {  // Software correction for physical mcp23017 pins
-  9, 255, 255, 255, 255, 255, 255, 255, 8, 7, 6, 5, 4, 3, 2, 1
-} ;
+  9, 10, 11, 255, 255, 255, 255, 255, 8, 7, 6, 5, 4, 3, 2, 1
+} ;  // 10 = decoupler, 11 = play/record, 255 is led, rest is button
 
 void debounceInputs()
 {
@@ -154,10 +159,22 @@ void debounceInputs()
             if((    IO & (1<<i)) 
             != (prevIO & (1<<i)) )
             {
+                uint8_t pin = mcpPins[i] ;  
+
                 if( !(IO & (1<<i)) )
                 {
-                    uint8_t pin = mcpPins[i] ;  
                     if( pin == 255 ) break ;
+
+                    if( pin == 10 )
+                    {
+                        decouplerSet = 1 ;
+                        break ; // decoupler set
+                    }
+                    if( pin == 11 )
+                    {
+                        programButton.debounce( 0 ) ;
+                        break ; // decoupler set
+                    }
                     
                     buttonState[mcpPins[i]-1] = FALLING ;
                     printNumberln("FALLING ", pin) ;
@@ -165,7 +182,11 @@ void debounceInputs()
                 }
                 else
                 {
-                    uint8_t pin = mcpPins[i] ; 
+                    if( pin == 11 )
+                    {
+                        programButton.debounce( 1 ) ;
+                    }
+                    pin = mcpPins[i] ; 
                     printNumberln("RISING ", pin) ;
                     buttonState[mcpPins[i]-1] = RISING ;
                 }
@@ -348,9 +369,57 @@ void updateRelay()
         Wire.beginTransmission( pcfAddress ) ;
         Wire.write( relays ) ;       
         Wire.endTransmission() ;
-
     }
 }
+
+void updateDecoupler()
+{
+    static uint32_t prevTime = 0 ;
+
+    if( decouplerSet == true )
+    {   decouplerSet = false ;
+
+        prevTime = millis() ; // 2.5s
+        setServo( 7, 1 ) ;         // move decoupler up
+        printNumberln(F("decoupler up"), 1);
+    }
+    else if( millis() - prevTime >= decouplerTime && getServo(7) == true ) // if decoupler is up and time has expired
+    {
+        setServo( 7, 0 ) ;         // move decoupler down
+        printNumberln(F("decoupler down"), 1);
+    }
+}
+
+void programCommand()
+{
+    static uint32_t prevTime ;
+    static uint8_t  disardRising ;
+    uint8_t state = programButton.getState() ;
+
+    if( state == FALLING )
+    {
+        disardRising = false ;
+        prevTime = millis() ;
+    }
+    if( state == LOW )
+    {
+        if( millis() - prevTime >= recordPressTime && disardRising == false ) // long press
+        {
+            disardRising = true ;
+            printNumberln(F("start recording "),1) ;
+            if( program.getState() == idle ) program.startRecording() ;
+        }
+    }
+
+    if( state == RISING && disardRising == false ) // release after short press
+    {
+        uint8_t programState = program.getState() ;
+        if( programState == recording ) { program.stopRecording() ; printNumberln(F("stop Recording "),1) ; return ; }
+        if( programState == playing   ) { program.stopPlaying() ;   printNumberln(F("stop Playing "),2) ;   return ; }
+        if( programState == idle      ) { program.startPlaying() ;  printNumberln(F("start Playing "),3) ;  return ; }
+    } 
+}
+
 
 // MOVE ME OUT OF HERE INTO THE .INO
 void setLed( uint8_t pin, uint8_t state ) // CURVED, STRAIGHT, OFF
@@ -384,7 +453,6 @@ void setLed( uint8_t pin, uint8_t state ) // CURVED, STRAIGHT, OFF
         writeRegister( ioDir, val ) ;
     }
 }
-
 
 
 void setup()
@@ -428,6 +496,8 @@ void loop()
     sweepServos() ;
     updateRelay() ;
     program.update() ; // not yet in use
+    updateDecoupler() ;
+    programCommand() ; 
 }
 
 
