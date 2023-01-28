@@ -165,7 +165,7 @@ void EventHandler::update()
             else
             {
                 recordingDevice = idle ;
-                startPlaying() ;
+                //startPlaying() ;
                 return ;
             }
         }

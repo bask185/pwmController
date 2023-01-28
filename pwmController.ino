@@ -21,8 +21,8 @@ check pwm controller
 #include "Wire.h"
 
 #define mcpAddress 0x20
-#define portA	0x12
-#define portB	0x13
+#define portA	    0x12
+#define portB	    0x13
 #define iodirRegA	0x00
 #define iodirRegB	0x01
 #define pullUpRegA	0x0C
@@ -34,15 +34,19 @@ const int F11 = -3 ; // degrees at the time
 const int F12 =  3 ;
 const int SPEED_MAX = 50 ; 
 uint8_t speedFeedback ;
+const int decouplerPin = 7 ;
 
-const int nButtons = 16 ;
+const int nButtons = 9 ;
 
 EventHandler program( 0x0000, 0x7FFF, 0x50 ) ;
 
 enum events
 {
-    accessoryEvent ,
+    relayEvent ,
+    servoEvent,
     speedEvent,
+    ledEvent,
+    buttonEvent,
 } ;
 
 const int nPointsPerStreet = 8 ;
@@ -102,8 +106,8 @@ uint8 index = 0 ;
 uint8 street ;
 int8_t speedActual ;
 
-const uint32_t decouplerTime    = 2500 ; // decoupler time in ms
-const uint32_t recordPressTime  = 2500 ;
+const uint32_t decouplerTime    = 3500 ; // decoupler time in ms
+const uint32_t recordPressTime  = 3500 ;
 
 const int pcfAddress = 0x21;
 
@@ -122,6 +126,7 @@ uint8_t relays ;
 int8_t  speed = 0 ;
 bool    accelerating = true ;
 bool    decouplerSet = false ;
+bool    programState = false ;
 
 uint8_t buttonState[16] ;
 
@@ -130,7 +135,7 @@ Debounce programButton( 255 ) ;
 
 
 const int mcpPins[] = {  // Software correction for physical mcp23017 pins
-  9, 10, 11, 255, 255, 255, 255, 255, 8, 7, 6, 5, 4, 3, 2, 1
+  9, 255, 255, 255, 255, 255, 15, 16, 8, 7, 6, 5, 4, 3, 2, 1
 } ;  // 10 = decoupler, 11 = play/record, 255 is led, rest is button
 
 void debounceInputs()
@@ -144,6 +149,8 @@ void debounceInputs()
         Wire.endTransmission() ;
         Wire.requestFrom( mcpAddress, 2 ) ;
         IO = (Wire.read() << 8) | Wire.read() ;  
+
+        programButton.debounce( programState ) ;
     }
     END_REPEAT
 
@@ -163,20 +170,24 @@ void debounceInputs()
 
                 if( !(IO & (1<<i)) )
                 {
-                    if( pin == 255 ) break ;
+                    //if( pin == 255 ) break ;
 
-                    if( pin == 10 )
+                    if( pin == 15 )
                     {
                         decouplerSet = 1 ;
+                        printNumberln("FALLING ", pin) ;
                         break ; // decoupler set
                     }
-                    if( pin == 11 )
+                    if( pin == 16 )
                     {
-                        programButton.debounce( 0 ) ;
-                        break ; // decoupler set
+                        programState = 0 ;
+                        printNumberln("FALLING ", pin) ;
+                        break ; 
                     }
                     
-                    buttonState[mcpPins[i]-1] = FALLING ;
+                    buttonState[pin-1] = FALLING ;
+                    program.storeEvent( buttonEvent , pin-1 , FALLING ) ;
+                    printNumberln(F("recorded button (FALLING): "),pin-1);
                     printNumberln("FALLING ", pin) ;
                     prevIO = IO ;
                 }
@@ -184,8 +195,9 @@ void debounceInputs()
                 {
                     if( pin == 11 )
                     {
-                        programButton.debounce( 1 ) ;
+                        programState = 1 ;
                     }
+                    programState = 1 ;
                     pin = mcpPins[i] ; 
                     printNumberln("RISING ", pin) ;
                     buttonState[mcpPins[i]-1] = RISING ;
@@ -273,7 +285,7 @@ void setOutput( uint8_t Address, uint8_t functions )
 {
     if( Address == 3) return ;
 
-    program.storeEvent( accessoryEvent,  Address, functions ) ; 
+    
 
     uint8_t number = 1 ;
     uint8_t indexShift = 0 ;
@@ -356,10 +368,17 @@ void notifyEvent( uint8 type, uint16 address, uint8 data )                      
 {
     switch( type )
     {
-        case speedEvent:        pwmController.setSpeed( data) ; break ; 
-        case accessoryEvent:    setOutput( address, data ) ;    break ;
+        case speedEvent:    pwmController.setSpeed( data) ;      
+                            speedActual = data ;                 break ;
+        case servoEvent:    setServo( address, data ) ;          break ;
+        case relayEvent:    bitWrite( relays, address, data ) ;  break ;     
+        case ledEvent:      setLed( address, data ) ;            break ;
+        case buttonEvent:   buttonState[address] = FALLING ;        
+                            printNumberln(F("buttonEvent"), address ) ;
+                            break ;
     }
 }
+
 
 void updateRelay()
 {
@@ -380,13 +399,15 @@ void updateDecoupler()
     {   decouplerSet = false ;
 
         prevTime = millis() ; // 2.5s
-        setServo( 7, 1 ) ;         // move decoupler up
+        setServo( decouplerPin, 1 ) ;         // move decoupler up
+        program.storeEvent( servoEvent,  decouplerPin, 1 ) ; 
         printNumberln(F("decoupler up"), 1);
     }
-    else if( millis() - prevTime >= decouplerTime && getServo(7) == true ) // if decoupler is up and time has expired
+    else if( millis() - prevTime >= decouplerTime && getServo(decouplerPin) == true ) // if decoupler is up and time has expired
     {
-        setServo( 7, 0 ) ;         // move decoupler down
-        printNumberln(F("decoupler down"), 1);
+        setServo( decouplerPin, 0 ) ;         // move decoupler down
+        program.storeEvent( servoEvent,  decouplerPin, 0 ) ; 
+        printNumberln(F("decoupler down"), 1); 
     }
 }
 
@@ -395,6 +416,8 @@ void programCommand()
     static uint32_t prevTime ;
     static uint8_t  disardRising ;
     uint8_t state = programButton.getState() ;
+
+    if( millis() < 1000 ) {program.stopRecording() ; return ;}
 
     if( state == FALLING )
     {
@@ -412,7 +435,7 @@ void programCommand()
     }
 
     if( state == RISING && disardRising == false ) // release after short press
-    {
+    { 
         uint8_t programState = program.getState() ;
         if( programState == recording ) { program.stopRecording() ; printNumberln(F("stop Recording "),1) ; return ; }
         if( programState == playing   ) { program.stopPlaying() ;   printNumberln(F("stop Playing "),2) ;   return ; }
@@ -482,6 +505,9 @@ void setup()
 
     debug.begin( 9600 ) ;
     debug.println("PWM controller booted") ;
+
+    programButton.debounce(1);
+    programButton.debounce(1);
 }
 
 
@@ -492,10 +518,10 @@ void loop()
     #endif
     pwmController.update() ;
     debounceInputs() ;
+    program.update() ;
     runNx() ;
     sweepServos() ;
     updateRelay() ;
-    program.update() ; // not yet in use
     updateDecoupler() ;
     programCommand() ; 
 }
@@ -529,7 +555,7 @@ void runNx()
     case getSecondButton:
         for(int i = 0 ; i < nButtons ; i ++ )
         {
-            if( buttonState[i] == RISING  )
+            if( buttonState[i] == RISING )
             { 
                 state = freeRoute ;
                 printNumberln("released ", firstButton ) ;
@@ -572,7 +598,7 @@ void runNx()
     case setRoute:
         REPEAT_MS( 333 )
         {
-            point = accessories[street][index++] ;
+            point = accessories[street][index++]  ;
 
             if( point == last )
             {
@@ -582,8 +608,8 @@ void runNx()
             else
             {
                 uint16_t address = point & 0x03FF ;
-                pointState = point >> 15 ;  
-                setServo( address, pointState ) ;
+                pointState = point >> 15 ;
+                setServo( address-1, pointState ) ;
                 setLed( pointLed[address], pointState+1 ) ;
                 printNumberln("point set", address) ;
             }
@@ -627,7 +653,11 @@ void runNx()
         for( int i = 1 ; i < 10 ; i ++ )
         {
             setLed( buttonLed[i], OFF ) ;
-            if( i < 8 ) setLed( pointLed[i], STRAIGHT ) ; // FIXME to be according to the real state.
+            if( i < 8 )
+            {
+               uint8_t state = getServo( i ) + 1 ;
+               setLed( pointLed[i], state ) ;
+            }
         }
         //if( buttonState )
         state = getFirstButton ;
@@ -686,7 +716,7 @@ void notifyXNetTrnt(uint16_t Address, uint8_t data)
 {
     if( bitRead( data, 3 ) == 1 )
     {
-        // fill me in
+        // fill me in ;
     }
 }
 #endif

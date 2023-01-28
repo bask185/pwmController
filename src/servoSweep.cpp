@@ -128,8 +128,8 @@ void initServos()
 
         for( int i = 0 ; i < 8 ; i ++ ) 
         {
-            EEPROM.write( ADDR_S1 + ( 2 * i )     ,  45 ) ;
-            EEPROM.write( ADDR_S1 + ( 2 * i ) + 1 , 135 ) ;
+            EEPROM.write( ADDR_S1 + ( 2 * i )     ,  85 ) ;
+            EEPROM.write( ADDR_S1 + ( 2 * i ) + 1 ,  95 ) ;
         }
     }
 
