@@ -38,12 +38,35 @@ void notifyXNetLocoDrive128( uint16_t Address, uint8_t Speed )
 }
 
 
+void routeSet() // called when all points are set
+{
+}
+
+void routeFreed() // called when route is freed up
+{
+}
+
+void setNxTurnout() // called when Nx modules wants to flip a switch.
+{
+
+}
+
 
 void setup()
 {
     debug.begin( 9600 ) ;
     debug.println("PWM controller booted") ;
-    nx.begin(0,0);
+    nx.begin( 
+      //  FREE_ON_TRAIN
+        TURN_OFF_POINT_LED
+      //| HAS_RELAYS
+      //| DIRECTION_MATTERS
+      | FREE_ON_BUTTON
+      //| TURN_ON_POINT_LED 
+    ) ;
+    #ifndef DEBUG
+    Xnet.setup( loco128, 2 )
+    #endif
 }
 
 
