@@ -48,14 +48,11 @@ void routeFreed() // called when route is freed up
 
 void setNxTurnout() // called when Nx modules wants to flip a switch.
 {
-
 }
 
 
 void setup()
 {
-    debug.begin( 9600 ) ;
-    debug.println("PWM controller booted") ;
     nx.begin( 
       //  FREE_ON_TRAIN
         TURN_OFF_POINT_LED
@@ -64,9 +61,13 @@ void setup()
       | FREE_ON_BUTTON
       //| TURN_ON_POINT_LED 
     ) ;
-    #ifndef DEBUG
+
+#ifndef DEBUG
     Xnet.setup( loco128, 2 )
-    #endif
+#else
+    debug.begin( 9600 ) ;
+    debug.println("PWM controller booted") ;
+#endif
 }
 
 
@@ -80,55 +81,7 @@ void loop()
 }
 
 
-
-
 #ifndef DEBUG
-/*
-void notifyXNetgiveLocoInfo(uint8_t UserOps, uint16_t Address)
-{
-    Xnet.SetLocoInfo(UserOps, 0x00, 0x00, 0x00); //UserOps,Speed,F0,F1
-}
-
-void notifyXNetgiveLocoMM(uint8_t UserOps, uint16_t Address)
-{
-    uint8_t F0 = 0, F1 = 0 ;
-
-    if( Address == 2 )
-    {
-        F1 = relays >> 4 ;
-        F0 = relays & 0x0F ;
-    }
-    if( Address == 1 )
-    {
-        for( int i = 0 ; i < 8 ; i ++ )
-        {
-            if( getServo(i) )
-            {
-                if( i < 4 ) F0 |= 1 <<  i ;
-                else        F1 |= 1 << i-4 ;
-            }
-        }
-    }
-
-    Xnet.SetLocoInfoMM(UserOps, 0x04, speedFeedback, F0, F1, 0, 0); //Steps,Speed,F0,F1,F2,F3
-}
-
-
-void notifyXNetgiveLocoFunc(uint8_t UserOps, uint16_t Address)
-{
-    Xnet.SetFktStatus(UserOps, 0x00, 0x00); //Fkt4, Fkt5
-}
-
-void notifyXNetTrntInfo(uint8_t UserOps, uint8_t Address, uint8_t data)
-{
-    int adr = ((Address * 4) + ((data & 0x01) * 2));
-    byte pos = data << 4;
-    bitWrite(pos, 7, 1);   // command completed!
-    bitWrite(pos, 1, 1);   // this should send information for 2 points, experiment with this
-    bitWrite(pos, 3, 1);    
-    Xnet.SetTrntStatus(UserOps, Address, pos);
-}
-*/
 void notifyXNetTrnt(uint16_t Address, uint8_t data)
 {
     if( bitRead( data, 3 ) == 1 )
