@@ -28,9 +28,12 @@ XpressNetMasterClass    Xnet ;
 //NX nx ;
 
 uint8_t     slaveMode;
-uint16_t    input = 0xFFFF ;
 uint8_t     nInputs ; // retreived from EEPROM eventually
 uint8_t     myAddress ;
+uint8_t     nSlaves ; // read from I2C bus who answered
+const uint8_t maxSlaves = 6 ;
+uint16_t    inputs[maxSlaves] ;
+uint16_t    myInput ;           // 2 bytes for when we are I2C slave
 
 const uint8_t nPins = 15 ;
 const uint8_t firstPin = 3 ;
@@ -103,15 +106,25 @@ void debounceInputs()
     {
         for( int i = 0 ; i < nPins ; i ++ )
         {
-            GPIO[i].debounce() ;
-        }      
+            GPIO[i].debounce() ;                // debounce my own IO
+        }
+
+        if( myAddress == 0 )    // if I am master I must request IO status of slaves, they 
+        {
+            for( int i = 0 ; i < nSlaves ; i ++ )
+            {
+                Wire.requestFrom( i+1, 2 ) ;  // request 2 bytes of each slave
+                inputs[i] = (Wire.read() ) << 8 | Wire.read() ; // N.B. must somehow be debounced togather with my own IO.
+            }
+        }
     }
+
     END_REPEAT
 
     for( int i = 0 ; i < nPins ; i ++ )
     {
-        GPIOstate[i] = GPIO[i].getState() ;
-    }      
+        GPIOstate[i] = GPIO[i].getState() ; // fix me to a uin32_t and use the bits for this
+    }
 }
 
 void processInputs()
@@ -120,13 +133,13 @@ void processInputs()
     {
         if( GPIOstate[i] == FALLING ) 
         {
-            if( myAddress ) input &= ~(1<<i) ;   // slave mode
+            if( myAddress ) myInput &= ~(1<<i) ;   // slave mode
             //else nx.setButton( i, true ) ;       // master mode
         }
 
         if( GPIOstate[i] == RISING )
         {
-            if( myAddress ) input |= (1<<i) ;    // slave mode
+            if( myAddress ) myInput |= (1<<i) ;    // slave mode
            // else nx.setButton( i, false ) ;      // master mode
         }
     }
@@ -135,8 +148,8 @@ void processInputs()
  // if request command is received, we must send back 2 bytes with all input status
 void requestEvent()
 {
-    Wire.write( highByte(input) ) ;
-    Wire.write(  lowByte(input) ) ;
+    Wire.write( highByte(myInput) ) ;
+    Wire.write(  lowByte(myInput) ) ;
 }
 
 // if a command is received we merely have to update LEDs
@@ -149,7 +162,8 @@ void receiveEvent( int nBytes )
 }
 
 void setup()
-{const int addressPins = A7 ;
+{
+    const int addressPins = A7 ;
     int sample = analogRead( addressPins ) ;
 
     myAddress = 0 ;
@@ -178,15 +192,22 @@ void setup()
         //| TURN_ON_POINT_LED 
         ) ;
         */
-    }
-
-    
+        uint8_t status ;
+        for( int i = 0 ; i < maxSlaves ; i ++ ) // max slaves is 6 for the time being
+        {
+            
+            Wire.beginTransmission( i+1 ) ;
+            status = Wire.endTransmission() ;
+            if( status == 0 ) nSlaves ++ ;      // count the amount of slaves who answer
+            else break ;                        // if no respons, break
+        }
+    }    
 
 #ifndef DEBUG
     Xnet.setup( loco128, 2 )
 #else
     debug.begin( 9600 ) ;
-    debug.println("PWM controller booted") ;
+    debug.println("PanelX controller booted") ;
 #endif
 }
 
