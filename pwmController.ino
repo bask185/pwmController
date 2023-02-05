@@ -64,17 +64,17 @@ void setLed( uint8_t led, uint8_t state )
     switch( state )
     {
     case OFF:
-        pinMode( GPIO[led], INPUT ) ;
+        pinMode( led+firstPin, INPUT ) ;
         break ;
 
     case STRAIGHT:
-        pinMode( GPIO[led], OUTPUT ) ;
-        digitalWrite( GPIO[led], LOW ) ;
+        pinMode( led+firstPin, OUTPUT ) ;
+        digitalWrite( led+firstPin, LOW ) ;
         break ;
 
     case CURVED:
-        pinMode( GPIO[led], OUTPUT ) ;
-        digitalWrite( GPIO[led], HIGH ) ;
+        pinMode( led+firstPin, OUTPUT ) ;
+        digitalWrite( led+firstPin, HIGH ) ;
         break ;
     }
 }
@@ -87,10 +87,13 @@ void routeFreed() // called when route is freed up
 {
 }
 
-void setNxTurnout( uint16_t address, uint8_t state ) // called when Nx modules wants to flip a switch.
+void setNxTurnout( uint8_t address, uint8_t state ) // called when Nx modules wants to flip a switch.
 {
-#ifndef DEBUG
     
+#ifndef DEBUG
+    Xnet.setTrntPos( point[address-1].dccAdress, state, 1 ) ;
+    delay( 20 ) ;
+    Xnet.setTrntPos( point[address-1].dccAdress, state, 0 ) ;
 #endif
 }
 
@@ -115,16 +118,16 @@ void processInputs()
 {
     for( int i = 0 ; i < nPins ; i ++ )
     {
-        if( GPIOstate[i] == FALLING )  // master mode
+        if( GPIOstate[i] == FALLING ) 
         {
-            if( myAddress ) input &= ~(1<<i) ;
-            else nx.setButton( i, TRUE ) ;
+            if( myAddress ) input &= ~(1<<i) ;   // slave mode
+            //else nx.setButton( i, true ) ;       // master mode
         }
 
         if( GPIOstate[i] == RISING )
         {
-            if( myAddress ) input |= (1<<i) ;
-            else nx.setButton( i, FALSE ) ;
+            if( myAddress ) input |= (1<<i) ;    // slave mode
+           // else nx.setButton( i, false ) ;      // master mode
         }
     }
 }
@@ -132,8 +135,8 @@ void processInputs()
  // if request command is received, we must send back 2 bytes with all input status
 void requestEvent()
 {
-    Wire.write( input[0] ) ;
-    Wire.write( input[1] ) ;
+    Wire.write( highByte(input) ) ;
+    Wire.write(  lowByte(input) ) ;
 }
 
 // if a command is received we merely have to update LEDs
@@ -146,7 +149,7 @@ void receiveEvent( int nBytes )
 }
 
 void setup()
-{
+{const int addressPins = A7 ;
     int sample = analogRead( addressPins ) ;
 
     myAddress = 0 ;
