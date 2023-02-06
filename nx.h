@@ -8,23 +8,30 @@ const int   STRAIGHT        = 0 ;
 const int   CURVED          = 1 ;
 const int   OFF             = 2 ;
 
+enum i2c_tasks
+{
+    taskSetLed, // 0
+    taskSetNx,
+    TaskSetIodir,
+} ;
+
 const uint8_t GPIO[] =
 {
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11,
-    12,
-    13,
-    A0,
-    A1,
-    A2,
-    A3,
+    3,      // GPIO  1  
+    4,      // GPIO  2
+    5,      // GPIO  3
+    6,      // GPIO  4
+    7,      // GPIO  5
+    8,      // GPIO  6
+    9,      // GPIO  7
+    10,     // GPIO  8
+    11,     // GPIO  9
+    12,     // GPIO 10
+    13,     // GPIO 11
+    A0,     // GPIO 12
+    A1,     // GPIO 13
+    A2,     // GPIO 14
+    A3,     // GPIO 15
 } ;
 
 extern const uint8_t nPoints ;
@@ -93,7 +100,7 @@ public:
         if( i2c ) // if not this board, relay info to slave
         {
             Wire.beginTransmission( pin/15 ) ; // slave address 
-            //Wire.write( taskSetLed  ) ; // todo
+            Wire.write( taskSetNx  ) ; // todo
             Wire.write( pin%15 ) ;
             Wire.write( state ) ;
             Wire.endTransmission() ;
@@ -141,6 +148,7 @@ public:
             uint8_t slave = pin / 15 ; // slave
             pin           = pin % 15 ; // led number on slave
             Wire.beginTransmission( slave ) ;
+            Wire.write( taskSetLed) ;
             Wire.write( pin ) ;
             Wire.write( state ) ;
             Wire.endTransmission() ;

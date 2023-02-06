@@ -82,19 +82,20 @@ void NX::run()
                 index = 0 ;
                 firstButton  = NA ;     // reset buttons
                 secondButton = NA ;
-                state = setRoute ;
-
+                
                 for( int i = 0 ; i < nPoints ; i ++ ) button[i].setLed( OFF ) ; // turn all Nx button LEDs off
 
                 if( flags & TURN_OFF_POINT_LED )
                 {
-                    for( int i = 0 ; i < nPoints ; i ++ ) point[i].setLed( OFF ) ;
+                    for( int i = 0 ; i < nPoints ; i ++ ) point[i].setLed( OFF ) ; // turn all turnout LEDs off
                 }
+
+                state = setRoute ;                                              // route found!
                 return ;
             }
         }
 
-        state = getFirstButton ;        
+        state = getFirstButton ;                                                // no route found
         break ;
 
     case setRoute:
