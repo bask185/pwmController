@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Wire.h>
 
 const int   FIRST_BUTTON    = 1 ;
 const int   SECOND_BUTTON   = 2 ;
@@ -7,49 +8,37 @@ const int   STRAIGHT        = 0 ;
 const int   CURVED          = 1 ;
 const int   OFF             = 2 ;
 
-// INITIALIZATION  _t _relaisPresent, uint8_t _freeRouteOnTrain, uint8_t _directionMatters )
-/**
- * @brief initializes the library
- * @param relaisPresent analog layouts can make use of relais for the begin and end tracks and tracks in between
- * @param freeRouteOnTrain frees up the route after the train has stopped moving, otherwise route is freed after being set
- * @param directionMatters if set, one must use separate routes for each directon of travel, otherwise buttons work ambiguous
- */
-extern void NxBegin( uint8_t, uint8_t, uint8_t ) ;
+const uint8_t GPIO[] =
+{
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    A0,
+    A1,
+    A2,
+    A3,
+} ;
 
-
-/**
- * @brief stores route to I2C EEPROM
- * @param pointer point to passed array
- * @param length  length of data to store
- * */
-extern void storeRoutes( uint8_t *, uint16_t ) ;
-
-
-
-// CONTROL FUNCTIONS
-/**
- * @brief Pass the first and second pressed buttons
- * @param id first or second button?
- * @param val number of button
- */
-extern void setNxButton( uint8_t, uint8_t ) ;
-
-
-
-/**
- * @brief Pass the speed to the NX handler to free up a route
- * @param speed speed of loco
- */
-extern void setNxSpeed( int8_t ) ;
-
-
-
-// ROUND ROBIN TASK
-extern void runNx( ) ;
-
+extern const uint8_t nPoints ;
+extern const uint8_t nButtons ;
 
 
 // CALLBACK FUNCTIONS
+/**
+ * @brief is called to update an LED on me or slave
+ * @param ledPin
+ * @param state
+ */
+extern void setLed( uint8_t, uint8_t ) __attribute__((weak)) ;
+
 /**
  * @brief is called by library to set a turnout
  * @param address of turnout
@@ -82,43 +71,45 @@ extern void routeFreed( ) __attribute__((weak)) ;
 */
 extern void invalidData( ) __attribute__((weak)) ;
 
+
 class NxButton
 {
 private:
     uint8_t pin ;
-    uint8_t state ;
+    uint8_t state : 2;
+    uint8_t i2c : 2;
 
 public:
     NxButton( uint8_t _pin )
     {
         pin = _pin ;
-    }
-
-    uint8_t read()
-    {
-        uint8_t retVal ;
-
-        if( state )
-        {
-            pinMode( pin, INPUT_PULLUP ) ;          // if IO pin is held low, we cannot read it, so we release the pin
-            retVal = digitalRead( pin ) ;           // than we read the button state
-            pinMode( pin, OUTPUT ) ;                // and we hold down the pin to keep the LED on
-            digitalWrite( pin, LOW ) ;      
-        }
-        else
-        {
-            pinMode( pin, INPUT_PULLUP ) ;
-            retVal = digitalRead( pin ) ;
-        }
-
-        return retVal ;
+        if( pin > 15 ) i2c = 1 ;
     }
 
     void setLed( uint8_t _state )
     {
         state = _state ;
 
-        read() ; // updates the IO registers for us, discard return value.
+        if( i2c ) // if not this board, relay info to slave
+        {
+            Wire.beginTransmission( pin/15 ) ; // slave address 
+            //Wire.write( taskSetLed  ) ; // todo
+            Wire.write( pin%15 ) ;
+            Wire.write( state ) ;
+            Wire.endTransmission() ;
+        }
+        else
+        {
+            if( state )
+            {
+                pinMode( GPIO[pin], INPUT_PULLUP ) ;          // if IO pin is held low, we cannot read it, so we release the pin
+                digitalWrite( GPIO[pin], LOW ) ;      
+            }
+            else
+            {
+                pinMode( GPIO[pin], INPUT_PULLUP ) ;
+            }
+        }
     }
 
     uint8_t getPin()
@@ -132,33 +123,44 @@ public:
 class Point
 {
 private:
-    uint8_t     ledPin : 6 ; // 64 IO
+    uint8_t     pin : 6 ; // 64 IO
     uint8_t     state : 2 ;  // 3 states
     uint16_t    dccAddress ;
 
 public:
     Point( uint8_t _ledPin, uint16_t _dccAddress )
     {
-        ledPin = _ledPin ;
+        pin = _ledPin ;
         dccAddress = _dccAddress ;
     }
 
-    void setState( uint8_t _state )
+    void setLed( uint8_t _state )  // change me to call extern already present setLed function
     {
-        state = _state ;
-
-        switch( state )
+        if( pin >= 15 )
         {
-        case CURVED:    pinMode(      ledPin, OUTPUT ) ;
-                        digitalWrite( ledPin, LOW ) ;       break ;
-        case STRAIGHT:  pinMode(      ledPin, OUTPUT ) ;
-                        digitalWrite( ledPin, HIGH ) ;      break ;
-        case OFF:       pinMode(      ledPin, INPUT ) ;     break ;
+            uint8_t slave = pin / 15 ; // slave
+            pin           = pin % 15 ; // led number on slave
+            Wire.beginTransmission( slave ) ;
+            Wire.write( pin ) ;
+            Wire.write( state ) ;
+            Wire.endTransmission() ;
+        }
+
+        else switch( state )
+        {
+        case OFF:       pinMode( GPIO[pin], INPUT ) ; break ;
+
+        case STRAIGHT:  pinMode( GPIO[pin], OUTPUT ) ;
+
+                        digitalWrite( GPIO[pin], LOW ) ; break ;
+        case CURVED:    pinMode( GPIO[pin], OUTPUT ) ;
+
+                        digitalWrite( GPIO[pin], HIGH ) ; break ;
         }
     }
 
     uint8_t     getState()    { return state ; }
-    uint8_t     getpin()      { return ledPin ; }
+    uint8_t     getpin()      { return pin ; }
     uint16_t    getAddress()  { return dccAddress ; }
 } ;
 
@@ -181,9 +183,9 @@ public:
     void        run() ;
     void        begin( uint8_t ) ;
     void        setSpeed( int8_t ) ;
+    void        setButton( uint8_t _btn, uint8_t state ) ;
 
 private:
-    void        debounceButtons() ;
 
     uint32_t    prevTime ;
     uint8_t     flags ;
@@ -195,3 +197,6 @@ private:
     uint8_t     index ;
     uint8_t     street ;
 } ;
+
+extern Point point[] ;
+extern NxButton button[] ;

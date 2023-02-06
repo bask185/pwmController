@@ -13,38 +13,12 @@ enum states
     setRelays,
     waitArrival,
     waitButtonPress,
+    setExtraBlocks,
 } ;
 
 const int   NA  = 0xFF ;
 
-Point point[] =
-{
-    Point( 2,  20 ), // led Pin, dcc address 
-    Point( 3,  21 ),
-    Point( 4,  22 ),
-    Point( 5,  23 ),
-    Point( 6,  24 ),
-    Point( 7,  25 ),
-    Point( 8,  26 ),
-    Point( 9,  27 ),
-    Point( 10, 28 ),
-    Point( 11, 29 ),
-} ;
-const uint8_t nPoints = sizeof( point ) / sizeof( point[0] ) ;
 
-NxButton button[] =
-{
-    NxButton( 12 ), // led/switch pin
-    NxButton( 13 ),
-    NxButton( 14 ),
-    NxButton( 15 ),
-    NxButton( 16 ),
-    NxButton( 17 ),
-    NxButton( 18 ),
-    NxButton( 19 ),
-    NxButton( 20 ),
-} ;
-const uint8_t nButtons = sizeof( button ) / sizeof( button[0] ) ;
 
 uint8_t nStreets ;
 
@@ -71,14 +45,22 @@ void NX::setSpeed( int8_t _speed )
     speed = _speed ;
 }
 
-void NX::debounceButtons()
+void NX::setButton( uint8_t _btn, uint8_t state )
 {
+    if( state ) // a button is pressed
+    {
+        if( firstButton == NA ) firstButton  = _btn ; // first set first button
+        else                    secondButton = _btn ; // if first button is known, set second
+    }
+    else        // a button is released
+    {
+        firstButton  = NA ;                            // if a button is released clear both
+        secondButton = NA ;
+    }
 }
 
 void NX::run()    
 {
-    debounceButtons() ;
-
     switch( state )
     {
     case getFirstButton:
@@ -102,9 +84,11 @@ void NX::run()
                 secondButton = NA ;
                 state = setRoute ;
 
+                for( int i = 0 ; i < nPoints ; i ++ ) button[i].setLed( OFF ) ; // turn all Nx button LEDs off
+
                 if( flags & TURN_OFF_POINT_LED )
                 {
-                    for( int i = 0 ; i < nPoints ; i ++ ) point[i].setState( OFF ) ;
+                    for( int i = 0 ; i < nPoints ; i ++ ) point[i].setLed( OFF ) ;
                 }
                 return ;
             }
@@ -146,7 +130,7 @@ void NX::run()
                 pointIndex &= 0x3FF ;               // 10 LSB carries point number
                 pointIndex -- ;                     // array is zero indexed
 
-                point[pointIndex].setState( state ) ;      // sets the leds on controlpanel
+                point[pointIndex].setLed( state ) ;      // sets the leds on controlpanel
                 uint16_t dccAddress = point[pointIndex].getAddress() ;
 
                 if( setNxTurnout ) setNxTurnout( dccAddress, state ) ;     // call back function to flip a switch
@@ -155,6 +139,7 @@ void NX::run()
         break ;
 
     case setExtraBlocks:
+        break ;
 
 
     case setRelays:
