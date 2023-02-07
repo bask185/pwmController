@@ -435,24 +435,16 @@
       "H-bridge"
     ],
     [
-      "122d586c-feed-4ee3-99dc-cd90b7ea1328",
-      "relays"
-    ],
-    [
-      "75ec2212-e96e-4697-bcb2-3d63ffb74a5b",
-      "Inputs"
-    ],
-    [
       "f2e2196a-c83d-497b-b552-0ac27a56ad59",
       "power"
     ],
     [
       "a084169b-da28-46ad-b05f-1a88913817db",
-      "interface"
+      "Lnet"
     ],
     [
-      "24f7e543-0a4d-4bd9-83c3-31e964ac51f4",
-      "EEPROM"
+      "b7502b72-8f6d-4223-8008-97c29fbdd69b",
+      "DCC"
     ],
     [
       "15782add-6e54-4e42-a416-61587f86a435",
